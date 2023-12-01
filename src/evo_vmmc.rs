@@ -1,13 +1,16 @@
 use std::f64::consts::PI;
-
 use rand::rngs::SmallRng;
-
-use crate::{
+use vmmc::{
     patchy_discs::PatchyDiscParams,
-    simbox::SimBox,
-    tiling::TilingGraph,
-    vmmc::{Vmmc, VmmcParams},
-};
+     simbox::SimBox,
+    vmmc::{Vmmc, VmmcParams}};
+
+// use crate::{
+//     patchy_discs::PatchyDiscParams,
+//     simbox::SimBox,
+//     tiling::TilingGraph,
+//     vmmc::{Vmmc, VmmcParams},
+// };
 
 // fn overlapping_polygon_sum(vmmc: &Vmmc) -> usize {
 //     // 1. generate edge list
