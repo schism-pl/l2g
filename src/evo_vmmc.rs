@@ -1,9 +1,10 @@
-use std::f64::consts::PI;
 use rand::rngs::SmallRng;
+use std::f64::consts::PI;
 use vmmc::{
     patchy_discs::PatchyDiscParams,
-     simbox::SimBox,
-    vmmc::{Vmmc, VmmcParams}};
+    simbox::SimBox,
+    vmmc::{Vmmc, VmmcParams},
+};
 
 // use crate::{
 //     patchy_discs::PatchyDiscParams,

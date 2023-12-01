@@ -1,8 +1,8 @@
 use clap::Parser;
+use l2g::evo_vmmc::{EvoVmmc, FitnessFunc};
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use vmmc::cli::VmmcConfig;
-use l2g::evo_vmmc::{EvoVmmc, FitnessFunc};
 
 // correctness criteria:
 // 1. average energy monotonically increases (decreases?)
