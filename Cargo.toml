@@ -20,4 +20,6 @@ env_logger = "0.10.0"
 log = "0.4.20"
 rand = { version = "0.8.5", features = ["small_rng"] }
 rand_distr = "0.4.3"
+threadpool = "1.8.1"
+toml = "0.8.8"
 vmmc = { path = "crates/vmmc" }
