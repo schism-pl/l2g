@@ -1,39 +1,8 @@
 use rand::rngs::SmallRng;
-use std::f64::consts::PI;
-use vmmc::{
-    patchy_discs::PatchyDiscParams,
-    simbox::SimBox,
-    vmmc::{Vmmc, VmmcParams},
-};
-
-// use crate::{
-//     patchy_discs::PatchyDiscParams,
-//     simbox::SimBox,
-//     tiling::TilingGraph,
-//     vmmc::{Vmmc, VmmcParams},
-// };
-
-// fn overlapping_polygon_sum(vmmc: &Vmmc) -> usize {
-//     // 1. generate edge list
-//     let tiling_graph = TilingGraph::from_vmmc(vmmc);
-//     // 2. get polgyon count
-//     let polygons = tiling_graph.get_polygon_counts();
-//     polygons.sum()
-// }
+use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
 
 pub struct L2GInputParams {
-    num_particles: usize,
-    interaction_energy: f64, // kBT
-    interaction_range: f64,  // diameter of patch (in units of particle diameter)
-    density: f64,
-    num_patches: usize,
-
-    prob_translate: f64,
-    max_trial_translation: f64,
-    max_trial_rotation: f64,
-    reference_radius: f64,
-    num_sweeps: usize,
-    steps_per_sweep: usize,
+    ip: InputParams,
 
     // L2G parameters
     num_generations: usize,
@@ -41,39 +10,24 @@ pub struct L2GInputParams {
     survivors_per_generation: usize, // # of children post-pruning
 }
 
+impl L2GInputParams {
+    pub fn ip(&self) -> &InputParams {
+        &self.ip
+    }
+}
+
 impl Default for L2GInputParams {
     fn default() -> Self {
-        let num_particles = 500; // starts at 500 and changes over time
-        let interaction_energy = 8.0; // The GA will change this. For now it can stay at 8.0
-        let interaction_range = 0.05; // checked
-        let density = 0.2; // doesn't use density? we'll keep it anyways lol
-        let num_patches = 3;
-
-        let prob_translate = 0.5; // checked
-        let max_trial_translation = 0.15; // checked
-        let max_trial_rotation = 0.06; // checked
-        let reference_radius = 0.5; // checked
-        let num_sweeps = 5;
-        let steps_per_sweep = 1000;
+        // TODO: build a toml file for steve' stuff and populate it with this
+        // TODO: read the toml here (this shouldn't be default)
+        let ip = InputParams::default();
 
         let num_generations = 3;
         let children_per_generation = 3;
         let survivors_per_generation = 1;
 
         Self {
-            num_particles,
-            interaction_energy,
-            interaction_range,
-            density,
-            num_patches,
-
-            prob_translate,
-            max_trial_translation,
-            max_trial_rotation,
-            reference_radius,
-            num_sweeps,
-            steps_per_sweep,
-
+            ip,
             num_generations,
             children_per_generation,
             survivors_per_generation,
@@ -92,10 +46,16 @@ pub enum FitnessFunc {
 //     Null,
 // }
 
+pub fn run_fresh_vmmc(ip: InputParams, rng: &mut SmallRng) -> Vmmc {
+    let mut vmmc = vmmc_from_config(&ip, rng);
+    run_vmmc(&mut vmmc, ip.protocol, None, rng);
+    vmmc
+}
+
 pub struct EvoVmmc {
-    // active_sims: Vec<Vmmc>,
     fitness_func: FitnessFunc,
     params: L2GInputParams,
+    // Target Tiling
 }
 
 impl EvoVmmc {
@@ -107,71 +67,26 @@ impl EvoVmmc {
         }
     }
 
-    // TODO: remove config? need seperate vmmc_from_config type functions
-    fn fresh_vmmc(&self, rng: &mut SmallRng) -> Vmmc {
-        let ip = &self.params;
-
-        let base_length = ((ip.num_particles as f64 * PI) / (4.0 * ip.density)).sqrt();
-        let box_dimensions = [base_length, base_length];
-        // lower bound on cell length (max distance that cells can interact at)
-        let cell_range = 1.0 + self.params.interaction_range;
-
-        let cells_per_axis = (base_length / cell_range).floor();
-        let cell_length = base_length / cells_per_axis;
-        let cells_per_axis = [cells_per_axis as usize, cells_per_axis as usize];
-
-        let cell_dimensions = [cell_length, cell_length];
-
-        // No initial position, so we will use a randomized start position
-        let simbox = SimBox::new_with_randomized_particles(
-            box_dimensions,
-            cells_per_axis,
-            cell_dimensions,
-            ip.num_particles,
-            rng,
-        );
-
-        let pd_params =
-            PatchyDiscParams::new(ip.num_patches, ip.interaction_energy, ip.interaction_range);
-
-        let params = VmmcParams::new(
-            ip.prob_translate,
-            ip.max_trial_translation,
-            ip.max_trial_rotation,
-            ip.reference_radius,
-        );
-
-        Vmmc::new(simbox, params, pd_params)
-    }
-
-    fn run_sim(&self, vmmc: &mut Vmmc, rng: &mut SmallRng) -> f64 {
-        let ip = &self.params;
-        for _idx in 0..ip.num_sweeps {
-            vmmc.step_n(ip.steps_per_sweep * ip.num_particles, rng);
-        }
-        vmmc.get_average_energy()
-    }
-
     /// returns a number between 0.0 and 1.0
     pub fn fitness(&self, vmmc: &Vmmc) -> f64 {
         match self.fitness_func {
             FitnessFunc::AvgEnergy => 1.0 - 1.0 / vmmc.get_average_energy().abs(),
-            FitnessFunc::Random => 0.5, // TODO: fix (need to pass through rng here?)
+            FitnessFunc::Random => 0.5, // we don't differentiate between
             FitnessFunc::OverlappingPolygonSum => panic!("Unimplemented"), //1.0 - 1.0 / overlapping_polygon_sum(vmmc),
         }
     }
 
-    // TODO: return vec of vmmcs?
     fn step_generation(&mut self, rng: &mut SmallRng) -> Vec<Vmmc> {
         let mut children = Vec::new();
         for jdx in 0..self.params.children_per_generation {
-            let mut vmmc = self.fresh_vmmc(rng);
-            let avg_energy = self.run_sim(&mut vmmc, rng);
+            // let r_vmmc = self.run_child(self.params.ip.clone(), rng);
+            let r_vmmc = run_fresh_vmmc(self.params.ip.clone(), rng);
+            let avg_energy = r_vmmc.get_average_energy();
             println!(
                 "average energy of child-sim {:?} = {:?} kBT\n",
                 jdx, avg_energy
             );
-            children.push(vmmc);
+            children.push(r_vmmc);
         }
         children
     }
@@ -194,17 +109,17 @@ impl EvoVmmc {
     fn get_index_of_least_fit(&self, values: &[(usize, Vmmc)]) -> usize {
         let mut lowest = f64::MIN;
         let mut index = 0;
-        for i in 0..values.len() {
-            if self.fitness(&values[i].1) < lowest {
-                lowest = self.fitness(&values[i].1);
-                index = i;
+        for (idx, v) in values.iter().enumerate() {
+            if self.fitness(&v.1) < lowest {
+                lowest = self.fitness(&v.1);
+                index = idx;
             }
         }
         index
     }
 
     // generate children from survivors of previously generations
-    pub fn spawn_children(&self, vmmcs: Vec<Vmmc>) -> Vec<Vmmc> {
+    pub fn spawn_children(&self, _vmmcs: Vec<Vmmc>) -> Vec<Vmmc> {
         panic!("TODO")
     }
 

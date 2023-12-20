@@ -9,6 +9,10 @@ edition = "2021"
 name = "l2g"
 path = "src/bin/l2g.rs"
 
+[[bin]]
+name = "batch_experiment"
+path = "src/bin/batch_experiment.rs"
+
 [dependencies]
 anyhow = "1.0.75" # better errors
 clap = { version = "4.4.6", features = ["derive"] } # commandline parsing
