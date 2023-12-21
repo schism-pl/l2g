@@ -48,7 +48,7 @@ pub enum FitnessFunc {
 
 pub fn run_fresh_vmmc(ip: InputParams, rng: &mut SmallRng) -> Vmmc {
     let mut vmmc = vmmc_from_config(&ip, rng);
-    run_vmmc(&mut vmmc, ip.protocol, None, rng);
+    let _: Option<()> = run_vmmc(&mut vmmc, ip.protocol, None, rng);
     vmmc
 }
 
