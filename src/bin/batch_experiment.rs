@@ -67,12 +67,17 @@ impl ExperimentStats {
         v
     }
 }
+
 #[derive(Serialize, Deserialize)]
+struct StatState {
+    stats: Vec<ExperimentStats>,
+}
+
 struct ExperimentCallback {
     stats: Vec<ExperimentStats>,
 }
 impl VmmcCallback for ExperimentCallback {
-    type CbResult = Vec<ExperimentStats>;
+    type CbResult = StatState;
     // runs after every million steps
     fn run(&mut self, vmmc: &Vmmc, step: &ProtocolStep, _: usize, _: &RunStats) {
         let num_particles = vmmc.particles().num_particles();
@@ -90,8 +95,10 @@ impl VmmcCallback for ExperimentCallback {
         self.stats.push(stats);
     }
 
-    fn state(&self) -> Vec<ExperimentStats> {
-        self.stats.clone()
+    fn state(&self) -> StatState {
+        StatState {
+            stats: self.stats.clone(),
+        }
     }
 }
 
