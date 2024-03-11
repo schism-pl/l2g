@@ -1,3 +1,4 @@
+use anyhow::Result;
 use rand::rngs::SmallRng;
 use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
 
@@ -48,7 +49,7 @@ pub enum FitnessFunc {
 
 pub fn run_fresh_vmmc(ip: InputParams, rng: &mut SmallRng) -> Vmmc {
     let mut vmmc = vmmc_from_config(&ip, rng);
-    let _: Option<()> = run_vmmc(&mut vmmc, ip.protocol, None, rng);
+    let _: Result<()> = run_vmmc(&mut vmmc, ip.protocol, vmmc::no_callback(), rng);
     vmmc
 }
 

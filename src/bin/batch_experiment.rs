@@ -17,6 +17,8 @@ use vmmc::{
 };
 
 fn experiment_ip() -> InputParams {
+    let seed = SmallRng::from_entropy().gen::<i64>();
+
     let num_particles = 500;
     let box_width = 75.0;
     let box_height = 75.0;
@@ -25,11 +27,12 @@ fn experiment_ip() -> InputParams {
     let max_translation = 0.15;
     let max_rotation = 0.2;
 
-    let protocol = FixedProtocol::flat_protocol(0.0, 10.0, 10);
+    let protocol = FixedProtocol::flat_protocol(0.0, 10.0, 1000);
 
-    let shapes = vec![Morphology::regular_3patch(0.1)];
+    let shapes = vec![Morphology::regular_6patch(0.05)];
 
     InputParams {
+        seed,
         num_particles,
         protocol,
         shapes,
@@ -80,6 +83,7 @@ impl VmmcCallback for ExperimentCallback {
     type CbResult = StatState;
     // runs after every million steps
     fn run(&mut self, vmmc: &Vmmc, step: &ProtocolStep, _: usize, _: &RunStats) {
+        assert!(vmmc.well_formed());
         let num_particles = vmmc.particles().num_particles();
         let interaction_energy = step.interaction_energy();
         let chemical_potential = step.chemical_potential();
@@ -102,55 +106,68 @@ impl VmmcCallback for ExperimentCallback {
     }
 }
 
+fn exec_job(config: VmmcConfig, jdx: usize, thread_seed: u64) {
+    let mut thread_rng = SmallRng::seed_from_u64(thread_seed);
+    let mut ip = experiment_ip();
+    ip.seed = thread_seed as i64;
+
+    // TODO: remove outdated files
+    // set up output directory
+    let mut thread_config = config.clone();
+
+    thread_config.set_output_dir(&format!("{}/{:?}", thread_config.output_dir(), jdx));
+
+    // set up thread output directory
+    let out_path = std::path::Path::new(thread_config.output_dir());
+    create_dir_all(out_path).unwrap();
+    clear_out_files(&thread_config).unwrap();
+
+    // write config to output directory
+    let toml = toml::to_string(&ip).unwrap();
+    std::fs::write(thread_config.toml(), toml).expect("Unable to write file");
+
+    // panic!("wow!");
+
+    let mut vmmc = vmmc_from_config(&ip, &mut thread_rng);
+    let cb = Box::new(ExperimentCallback { stats: Vec::new() });
+
+    let r = run_vmmc(&mut vmmc, ip.protocol, cb, &mut thread_rng);
+
+    // let avg_energy = vmmc.get_average_energy();
+    // println!("average energy of job_{:?} = {:?} kBT\n", jdx, avg_energy);
+
+    write_geometry_png(&vmmc, &thread_config.geometry());
+
+    let toml = toml::to_string(&r.unwrap()).unwrap();
+    std::fs::write(thread_config.stats(), toml).expect("Unable to write file");
+}
+
 fn main() {
     env_logger::init();
     // Get commandline arguments
     let config = VmmcConfig::parse();
 
-    let num_threads = 8;
-    let num_jobs = 8;
+    let num_threads = 10;
+    let num_jobs = 10;
     let pool = ThreadPool::new(num_threads);
 
     // Seed the rng
-    let seed = config.seed();
+    let seed = experiment_ip().seed as u64;
     println!("Using seed = {:?}", seed);
     let mut rng = SmallRng::seed_from_u64(seed);
     let seeds: Vec<u64> = (0..num_jobs).map(|_| rng.gen()).collect();
 
     for jdx in 0..num_jobs {
-        // create job rng
+        let thread_config = config.clone();
         let thread_seed = seeds[jdx];
-        let mut thread_rng = SmallRng::seed_from_u64(thread_seed);
-        let ip = experiment_ip();
-
-        // TODO: remove outdated files
-        // set up output directory
-        let mut thread_config = config.clone();
-        thread_config.set_output_dir(&format!("{}/{:?}", thread_config.output_dir(), jdx));
-
-        // set up thread output directory
-        let out_path = std::path::Path::new(thread_config.output_dir());
-        create_dir_all(out_path).unwrap();
-        clear_out_files(&thread_config).unwrap();
-
-        // write config to output directory
-        let toml = toml::to_string(&ip).unwrap();
-        std::fs::write(thread_config.toml(), toml).expect("Unable to write file");
-
         pool.execute(move || {
-            let mut vmmc = vmmc_from_config(&ip, &mut thread_rng);
-            let cb = Box::new(ExperimentCallback { stats: Vec::new() });
-
-            let r = run_vmmc(&mut vmmc, ip.protocol, Some(cb), &mut thread_rng);
-
-            let avg_energy = vmmc.get_average_energy();
-            println!("average energy of job_{:?} = {:?} kBT\n", jdx, avg_energy);
-
-            write_geometry_png(&vmmc, &thread_config.geometry());
-
-            let toml = toml::to_string(&r.unwrap()).unwrap();
-            std::fs::write(thread_config.stats(), toml).expect("Unable to write file");
-        });
+            if let Err(e) = std::panic::catch_unwind(|| {
+                exec_job(thread_config, jdx, thread_seed);
+            }) {
+                println!("Job {:?} encountered a panic: {:?}", jdx, e)
+            }
+        })
     }
+
     pool.join()
 }

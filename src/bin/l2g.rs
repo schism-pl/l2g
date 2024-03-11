@@ -18,13 +18,13 @@ fn main() {
     // Get default params
 
     // Seed the rng
-    let seed = config.seed();
-    println!("Using seed = {:?}", seed);
-    let mut rng = SmallRng::seed_from_u64(seed);
+    // let seed = config.seed();
+    // println!("Using seed = {:?}", seed);
+    // let mut rng = SmallRng::seed_from_u64(seed);
 
-    // let ip = L2GInputParams::default();
-    let mut evo_vmmc = EvoVmmc::new(FitnessFunc::AvgEnergy);
-    evo_vmmc.step_all(&mut rng);
+    // // let ip = L2GInputParams::default();
+    // let mut evo_vmmc = EvoVmmc::new(FitnessFunc::AvgEnergy);
+    // evo_vmmc.step_all(&mut rng);
 
     // evo_vmmc.step_generation_n(ip.num_generations, &mut rng);
 
