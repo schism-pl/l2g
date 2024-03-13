@@ -9,7 +9,7 @@ use vmmc::{
     io::{clear_out_files, write_geometry_png},
     morphology::Morphology,
     polygons::{calc_bond_distribution, calc_polygons, Polygon},
-    protocol::{FixedProtocol, ProtocolStep},
+    protocol::{SynthesisProtocol, ProtocolStep},
     run_vmmc,
     stats::RunStats,
     vmmc::Vmmc,
@@ -19,30 +19,22 @@ use vmmc::{
 fn experiment_ip() -> InputParams {
     let seed = SmallRng::from_entropy().gen::<i64>();
 
-    let num_particles = 500;
+    let initial_particles = 500;
     let box_width = 75.0;
     let box_height = 75.0;
 
-    let prob_translate = 0.5;
-    let max_translation = 0.15;
-    let max_rotation = 0.2;
-
-    let protocol = FixedProtocol::flat_protocol(0.0, 10.0, 1000);
+    let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 1000);
 
     let shapes = vec![Morphology::regular_6patch(0.05)];
 
     InputParams {
         seed,
-        num_particles,
+        initial_particles,
         protocol,
         shapes,
 
         box_width,
         box_height,
-
-        prob_translate,
-        max_translation,
-        max_rotation,
     }
 }
 
