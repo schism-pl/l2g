@@ -1,5 +1,5 @@
-use vmmc::vmmc::Vmmc;
 use vmmc::polygons::calc_polygon_count;
+use vmmc::vmmc::Vmmc;
 
 pub enum FitnessFunc {
     Random,
@@ -13,8 +13,7 @@ impl FitnessFunc {
         match self {
             // FitnessFunc::NumBonds => 1.0 - 1.0 / calc_bond_distribution(vmmc).iter().sum::<usize>() as f64,
             FitnessFunc::Random => 0.5, // we don't differentiate between different simulations
-            FitnessFunc::PolygonSum => 1.0 - 1.0 / calc_polygon_count(vmmc, 12) as f64, 
+            FitnessFunc::PolygonSum => 1.0 - 1.0 / calc_polygon_count(vmmc, 12) as f64,
         }
     }
 }
-

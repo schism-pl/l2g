@@ -1,5 +1,5 @@
-pub mod evo_vmmc;
-pub mod nn;
 pub mod config;
-pub mod pruning;
+pub mod evo_vmmc;
 pub mod fitness;
+pub mod nn;
+pub mod pruning;

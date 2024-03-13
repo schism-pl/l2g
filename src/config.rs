@@ -25,9 +25,6 @@ impl L2GInputParams {
     pub fn survivors_per_generation(&self) -> usize {
         self.survivors_per_generation
     }
-
-
-
 }
 
 impl Default for L2GInputParams {

@@ -1,10 +1,9 @@
-use anyhow::Result;
-use rand::rngs::SmallRng;
-use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
 use crate::config::L2GInputParams;
 use crate::fitness::FitnessFunc;
 use crate::pruning::prune;
-
+use anyhow::Result;
+use rand::rngs::SmallRng;
+use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
 
 // pub enum MutationFunc {
 //     NumParticles,
@@ -51,7 +50,11 @@ impl EvoVmmc {
         for idx in 0..n {
             println!("Starting generation {:?}", idx);
             let children = self.step_generation(rng);
-            let survivors = prune(children, self.params.survivors_per_generation(), &self.fitness_func);
+            let survivors = prune(
+                children,
+                self.params.survivors_per_generation(),
+                &self.fitness_func,
+            );
             let survivor_ids: Vec<usize> = survivors.iter().map(|v| v.0).collect();
             println!("{:?} survive", survivor_ids);
         }
@@ -65,8 +68,4 @@ impl EvoVmmc {
     pub fn spawn_children(&self, _vmmcs: Vec<Vmmc>) -> Vec<Vmmc> {
         panic!("TODO")
     }
-
-
 }
-
-
