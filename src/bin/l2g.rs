@@ -1,9 +1,11 @@
 use clap::Parser;
-use l2g::evo_vmmc::EvoVmmc;
+use l2g::config::L2GInputParams;
+use l2g::evo_vmmc::{self, EvoVmmc};
 use l2g::fitness::FitnessFunc;
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use vmmc::cli::VmmcConfig;
+use std::fs;
 
 // correctness criteria:
 // 1. average energy monotonically increases (decreases?)
@@ -11,37 +13,26 @@ use vmmc::cli::VmmcConfig;
 // 3. values match other impls (approximately)
 
 // TODO: builder pattern
-fn main() {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
     // Get commandline arguments
-    // TODO: use seperate commandline arguments
     let config = VmmcConfig::parse();
+
+    let l2gip = if config.input() != "" {
+        let contents = fs::read_to_string(config.input())?;
+        toml::from_str(&contents)?
+    } else {
+        L2GInputParams::default()
+    };
+
     // Get default params
-
     // Seed the rng
-    // let seed = config.seed();
-    // println!("Using seed = {:?}", seed);
-    // let mut rng = SmallRng::seed_from_u64(seed);
+    let seed = l2gip.ip().seed;
+    println!("Using seed = {:x?}", seed);
+    let mut rng = SmallRng::seed_from_u64(seed as u64);
 
-    // // let ip = L2GInputParams::default();
-    // let mut evo_vmmc = EvoVmmc::new(FitnessFunc::AvgEnergy);
-    // evo_vmmc.step_all(&mut rng);
+    let mut evo_vmmc = EvoVmmc::new(l2gip);
+    evo_vmmc.step_all(&mut rng);
 
-    // evo_vmmc.step_generation_n(ip.num_generations, &mut rng);
-
-    // TODO: implement fitness function class
-    // TODO: implement pruning functionality
-    // TODO: implement Metasim class
-    // TODO: parallelize children
-    // TODO: randomize starts?
-    // TODO: modify something meaningful each run (chemical potential / interaction range?)
-    // for idx in 0..ip.num_generations {
-    //     println!("Starting generation {:?}", idx);
-    //     for jdx in 0..ip.children_per_generation {
-    //         println!("Simulating child {:?}-{:?}", idx, jdx);
-    //         let mut vmmc = vmmc_from_config(&ip, &mut rng);
-    //         let avg_energy = run_sim(&mut vmmc, &ip, &mut rng);
-    //         println!("average energy of sim {:?}-{:?} = {:?} kBT\n", idx, jdx, avg_energy);
-    //     }
-    // }
+    Ok(())
 }

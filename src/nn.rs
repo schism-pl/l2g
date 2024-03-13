@@ -1,9 +1,9 @@
 /// Implement nueral net implementation from original paper
 use rand_distr::{Distribution, Normal};
+use serde::{Deserialize, Serialize};
 
 // architecture = 1 input, 1000 hidden layers of 1 node each, and 2 outputs (mu and epsilon)
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 struct HiddenLayer {
     input_weight: f64,
     epsilon_weight: f64,
@@ -24,6 +24,7 @@ impl HiddenLayer {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct NueralNet {
     layers: Vec<HiddenLayer>,
 }

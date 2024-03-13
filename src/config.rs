@@ -1,7 +1,19 @@
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 use vmmc::InputParams;
 
+use serde::{Deserialize, Serialize};
+
+use crate::{fitness::FitnessFunc, mutation::MutationFunc};
+
+#[derive(Clone, Serialize, Deserialize)]
+// #[serde(default)]
 pub struct L2GInputParams {
+    // TODO: change this to u64
+    pub seed: i64, // toml crashes when I try to store as u64?
     ip: InputParams,
+
+    pub fitness_func: FitnessFunc,
+    pub mutation_func: MutationFunc,
 
     // L2G parameters
     num_generations: usize,
@@ -29,9 +41,8 @@ impl L2GInputParams {
 
 impl Default for L2GInputParams {
     fn default() -> Self {
-        // TODO: build a toml file for steve' stuff and populate it with this
-        // TODO: read the toml here (this shouldn't be default)
         let ip = InputParams::default();
+        let seed = SmallRng::from_entropy().gen::<i64>();
 
         let num_generations = 3;
         let children_per_generation = 3;
@@ -39,6 +50,9 @@ impl Default for L2GInputParams {
 
         Self {
             ip,
+            fitness_func: FitnessFunc::PolygonSum,
+            mutation_func: MutationFunc::UniformRandom(0.1),
+            seed,
             num_generations,
             children_per_generation,
             survivors_per_generation,

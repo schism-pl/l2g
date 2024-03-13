@@ -27,7 +27,7 @@ pub fn prune(vmmcs: Vec<Vmmc>, prune_to: usize, fitness: &FitnessFunc) -> Vec<(u
         }
         // attempt to replace one of the survivors
         let fit = fitness.eval(&vmmc);
-        let index = get_index_of_least_fit(&fitness, &survivors);
+        let index = get_index_of_least_fit(fitness, &survivors);
         if fit > fitness.eval(&survivors[index].1) {
             survivors[index] = (idx, vmmc);
         }

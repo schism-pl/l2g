@@ -1,14 +1,10 @@
 use crate::config::L2GInputParams;
 use crate::fitness::FitnessFunc;
 use crate::pruning::prune;
+use crate::mutation::MutationFunc;
 use anyhow::Result;
 use rand::rngs::SmallRng;
 use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
-
-// pub enum MutationFunc {
-//     NumParticles,
-//     Null,
-// }
 
 pub fn run_fresh_vmmc(ip: InputParams, rng: &mut SmallRng) -> Vmmc {
     let mut vmmc = vmmc_from_config(&ip, rng);
@@ -16,30 +12,29 @@ pub fn run_fresh_vmmc(ip: InputParams, rng: &mut SmallRng) -> Vmmc {
     vmmc
 }
 
+// TODO: add diagram to markdown
+// 0. load config using serde (has embedded inputconfig?)
+// 1. Spin up first generation from InputConfig
+// 2. 
+
 pub struct EvoVmmc {
-    fitness_func: FitnessFunc,
+    // fitness_func: FitnessFunc,
+    // mutation_func: MutationFunc,
     params: L2GInputParams,
 }
 
 impl EvoVmmc {
-    pub fn new(fitness_func: FitnessFunc) -> Self {
-        let params = L2GInputParams::default();
+    pub fn new(params: L2GInputParams) -> Self {
         Self {
-            fitness_func,
             params,
         }
     }
 
+    // Currently: spins up `children_per_generation` fresh vms and returns it
     fn step_generation(&mut self, rng: &mut SmallRng) -> Vec<Vmmc> {
         let mut children = Vec::new();
         for jdx in 0..self.params.children_per_generation() {
-            // let r_vmmc = self.run_child(self.params.ip.clone(), rng);
             let r_vmmc = run_fresh_vmmc(self.params.ip().clone(), rng);
-            let avg_energy = r_vmmc.get_average_energy();
-            println!(
-                "average energy of child-sim {:?} = {:?} kBT\n",
-                jdx, avg_energy
-            );
             children.push(r_vmmc);
         }
         children
@@ -53,7 +48,7 @@ impl EvoVmmc {
             let survivors = prune(
                 children,
                 self.params.survivors_per_generation(),
-                &self.fitness_func,
+                &self.params.fitness_func,
             );
             let survivor_ids: Vec<usize> = survivors.iter().map(|v| v.0).collect();
             println!("{:?} survive", survivor_ids);

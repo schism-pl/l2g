@@ -24,22 +24,6 @@ struct ExperimentStats {
     bond_distributions: Vec<Vec<usize>>, // shape -> {}
 }
 
-// impl ExperimentStats {
-//     fn polygon_count(&self) -> usize {
-//         self.polygons.len()
-//     }
-
-//     fn average_bonds(&self) -> Vec<f64> {
-//         let mut v = Vec::new();
-//         for shape_stats in self.bond_distributions.iter() {
-//             let weighted_sum: usize = shape_stats.iter().enumerate().map(|(i, c)| i * c).sum();
-//             let avg_bonds = weighted_sum as f64 / self.num_particles as f64;
-//             v.push(avg_bonds);
-//         }
-//         v
-//     }
-// }
-
 #[derive(Serialize, Deserialize)]
 struct StatState {
     stats: Vec<ExperimentStats>,
