@@ -7,36 +7,13 @@ use threadpool::ThreadPool;
 use vmmc::{
     cli::VmmcConfig,
     io::{clear_out_files, write_geometry_png},
-    morphology::Morphology,
     polygons::{calc_bond_distribution, calc_polygons, Polygon},
-    protocol::{SynthesisProtocol, ProtocolStep},
+    protocol::ProtocolStep,
     run_vmmc,
     stats::RunStats,
     vmmc::Vmmc,
     vmmc_from_config, InputParams, VmmcCallback,
 };
-
-fn experiment_ip() -> InputParams {
-    let seed = SmallRng::from_entropy().gen::<i64>();
-
-    let initial_particles = 500;
-    let box_width = 75.0;
-    let box_height = 75.0;
-
-    let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 1000);
-
-    let shapes = vec![Morphology::regular_6patch(0.05)];
-
-    InputParams {
-        seed,
-        initial_particles,
-        protocol,
-        shapes,
-
-        box_width,
-        box_height,
-    }
-}
 
 #[derive(Serialize, Deserialize, Clone)]
 struct ExperimentStats {
@@ -47,21 +24,21 @@ struct ExperimentStats {
     bond_distributions: Vec<Vec<usize>>, // shape -> {}
 }
 
-impl ExperimentStats {
-    fn polygon_count(&self) -> usize {
-        self.polygons.len()
-    }
+// impl ExperimentStats {
+//     fn polygon_count(&self) -> usize {
+//         self.polygons.len()
+//     }
 
-    fn average_bonds(&self) -> Vec<f64> {
-        let mut v = Vec::new();
-        for shape_stats in self.bond_distributions.iter() {
-            let weighted_sum: usize = shape_stats.iter().enumerate().map(|(i, c)| i * c).sum();
-            let avg_bonds = weighted_sum as f64 / self.num_particles as f64;
-            v.push(avg_bonds);
-        }
-        v
-    }
-}
+//     fn average_bonds(&self) -> Vec<f64> {
+//         let mut v = Vec::new();
+//         for shape_stats in self.bond_distributions.iter() {
+//             let weighted_sum: usize = shape_stats.iter().enumerate().map(|(i, c)| i * c).sum();
+//             let avg_bonds = weighted_sum as f64 / self.num_particles as f64;
+//             v.push(avg_bonds);
+//         }
+//         v
+//     }
+// }
 
 #[derive(Serialize, Deserialize)]
 struct StatState {
@@ -100,7 +77,7 @@ impl VmmcCallback for ExperimentCallback {
 
 fn exec_job(config: VmmcConfig, jdx: usize, thread_seed: u64) {
     let mut thread_rng = SmallRng::seed_from_u64(thread_seed);
-    let mut ip = experiment_ip();
+    let mut ip = InputParams::default();
     ip.seed = thread_seed as i64;
 
     // TODO: remove outdated files
@@ -118,15 +95,10 @@ fn exec_job(config: VmmcConfig, jdx: usize, thread_seed: u64) {
     let toml = toml::to_string(&ip).unwrap();
     std::fs::write(thread_config.toml(), toml).expect("Unable to write file");
 
-    // panic!("wow!");
-
     let mut vmmc = vmmc_from_config(&ip, &mut thread_rng);
     let cb = Box::new(ExperimentCallback { stats: Vec::new() });
 
     let r = run_vmmc(&mut vmmc, ip.protocol, cb, &mut thread_rng);
-
-    // let avg_energy = vmmc.get_average_energy();
-    // println!("average energy of job_{:?} = {:?} kBT\n", jdx, avg_energy);
 
     write_geometry_png(&vmmc, &thread_config.geometry());
 
@@ -144,7 +116,7 @@ fn main() {
     let pool = ThreadPool::new(num_threads);
 
     // Seed the rng
-    let seed = experiment_ip().seed as u64;
+    let seed = InputParams::default().seed as u64;
     println!("Using seed = {:?}", seed);
     let mut rng = SmallRng::seed_from_u64(seed);
     let seeds: Vec<u64> = (0..num_jobs).map(|_| rng.gen()).collect();

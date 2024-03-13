@@ -1,5 +1,6 @@
 use clap::Parser;
-use l2g::evo_vmmc::{EvoVmmc, FitnessFunc};
+use l2g::evo_vmmc::EvoVmmc;
+use l2g::fitness::FitnessFunc;
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use vmmc::cli::VmmcConfig;

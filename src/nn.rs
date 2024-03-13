@@ -57,24 +57,3 @@ impl NueralNet {
         (epsilon, mu)
     } 
 }
-
-
-/*
-
-
-
-void generate_net(void) {
-
-  int i, j;
-
-  ifstream infile(st, ios::in);
-
-
-
-  for (i = 0; i < hidden_layer; i++) {
-
-    bias_hidden[i] = gauss_rv(weight_var);
-  }
-}
-
-*/
