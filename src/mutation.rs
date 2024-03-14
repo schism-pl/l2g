@@ -10,7 +10,7 @@ pub enum MutationFunc {
 }
 
 impl MutationFunc {
-    pub fn mutate(&self, ip: InputParams) -> InputParams {
+    pub fn mutate(&self, ip: &InputParams) -> InputParams {
         use MutationFunc::*;
         match self {
             UniformRandom(mag) => unimplemented!(),

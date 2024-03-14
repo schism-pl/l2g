@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use vmmc::polygons::calc_polygon_count;
 use vmmc::vmmc::Vmmc;
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum FitnessFunc {

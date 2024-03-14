@@ -1,66 +1,124 @@
-use crate::config::L2GInputParams;
+// use crate::config::L2GInputParams;
 use crate::fitness::FitnessFunc;
-use crate::pruning::prune;
 use crate::mutation::MutationFunc;
+use crate::pruning::prune;
 use anyhow::Result;
 use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
 
-pub fn run_fresh_vmmc(ip: InputParams, rng: &mut SmallRng) -> Vmmc {
+pub fn run_fresh_vmmc(ip: &InputParams, rng: &mut SmallRng) -> Vmmc {
     let mut vmmc = vmmc_from_config(&ip, rng);
-    let _: Result<()> = run_vmmc(&mut vmmc, ip.protocol, vmmc::no_callback(), rng);
+    let _: Result<()> = run_vmmc(&mut vmmc, ip.protocol.clone(), vmmc::no_callback(), rng);
     vmmc
 }
 
 // TODO: add diagram to markdown
 // 0. load config using serde (has embedded inputconfig?)
 // 1. Spin up first generation from InputConfig
-// 2. 
+// 2.
 
+#[derive(Clone, Serialize, Deserialize)]
+// #[serde(default)]
 pub struct EvoVmmc {
-    // fitness_func: FitnessFunc,
-    // mutation_func: MutationFunc,
-    params: L2GInputParams,
+    // TODO: change this to u64
+    pub seed: i64, // toml crashes when I try to store as u64?
+    ip: InputParams,
+
+    pub fitness_func: FitnessFunc,
+    pub mutation_func: MutationFunc,
+
+    num_generations: usize,
+    survivors_per_generation: usize, // # of children post-pruning
+    children_per_survivor: usize,
 }
 
 impl EvoVmmc {
-    pub fn new(params: L2GInputParams) -> Self {
-        Self {
-            params,
-        }
+    pub fn ip(&self) -> &InputParams {
+        &self.ip
     }
 
-    // Currently: spins up `children_per_generation` fresh vms and returns it
-    fn step_generation(&mut self, rng: &mut SmallRng) -> Vec<Vmmc> {
-        let mut children = Vec::new();
-        for jdx in 0..self.params.children_per_generation() {
-            let r_vmmc = run_fresh_vmmc(self.params.ip().clone(), rng);
-            children.push(r_vmmc);
+    pub fn num_generations(&self) -> usize {
+        self.num_generations
+    }
+
+    pub fn children_per_survivor(&self) -> usize {
+        self.children_per_survivor
+    }
+
+    pub fn survivors_per_generation(&self) -> usize {
+        self.survivors_per_generation
+    }
+
+    // Executes a generation
+    fn step_generation(&mut self, ips: &[InputParams], rng: &mut SmallRng) -> Vec<Vmmc> {
+        let mut sims = Vec::new();
+        for ip in ips.iter() {
+            let vmmc = run_fresh_vmmc(ip, rng);
+            sims.push(vmmc);
         }
-        children
+        sims
     }
 
     // TODO: how to derive new generation from old?
-    pub fn step_generation_n(&mut self, n: usize, rng: &mut SmallRng) {
-        for idx in 0..n {
+    pub fn step_all(&mut self, rng: &mut SmallRng) {
+        // Create initial generation
+        let mut active_ips: Vec<InputParams> = vec![
+            InputParams::default();
+            self.survivors_per_generation
+                * self.children_per_survivor
+        ];
+        for idx in 0..self.num_generations {
             println!("Starting generation {:?}", idx);
-            let children = self.step_generation(rng);
-            let survivors = prune(
+            // 1.) Execute a generations worth of sims
+            // [IP] -> [Vmmc]
+            let children = self.step_generation(&active_ips, rng);
+            // 2.) Use Fitness function to trim down to the survivors
+            // [Ips] -> [Vmmc] -> [Ip]
+            let survivor_ips = prune(
+                &active_ips,
                 children,
-                self.params.survivors_per_generation(),
-                &self.params.fitness_func,
+                self.survivors_per_generation(),
+                &self.fitness_func,
             );
-            let survivor_ids: Vec<usize> = survivors.iter().map(|v| v.0).collect();
-            println!("{:?} survive", survivor_ids);
+            // 3.) Use Mutation function to get back to normal number of sims
+            // [(Ip)] -> [Ip]
+            active_ips = self.spawn_children(survivor_ips);
         }
     }
 
-    pub fn step_all(&mut self, rng: &mut SmallRng) {
-        self.step_generation_n(self.params.num_generations(), rng)
-    }
-
     // generate children from survivors of previously generations
-    pub fn spawn_children(&self, _vmmcs: Vec<Vmmc>) -> Vec<Vmmc> {
-        panic!("TODO")
+    // survivors: [survivors_per_generation; Vmmc] -> p[]
+    pub fn spawn_children(&self, survivors: Vec<InputParams>) -> Vec<InputParams> {
+        let mut children = Vec::new();
+        for ip in survivors.iter() {
+            for _ in 0..self.children_per_survivor {
+                let child_ip = self.mutation_func.mutate(ip);
+                children.push(child_ip);
+            }
+        }
+        children
+    }
+}
+
+impl Default for EvoVmmc {
+    fn default() -> Self {
+        let ip = InputParams::default();
+        let seed = SmallRng::from_entropy().gen::<i64>();
+
+        let num_generations = 3;
+        let children_per_survivor = 3;
+        let survivors_per_generation = 1;
+
+        Self {
+            ip,
+            fitness_func: FitnessFunc::PolygonSum,
+            mutation_func: MutationFunc::UniformRandom(0.1),
+            seed,
+            num_generations,
+            children_per_survivor,
+            survivors_per_generation,
+        }
     }
 }
