@@ -19,6 +19,27 @@ pub fn run_fresh_vmmc(ip: &InputParams, rng: &mut SmallRng) -> Vmmc {
 // 1. Spin up first generation from InputConfig
 // 2.
 
+#[derive(Clone)]
+
+pub struct EvoState {
+    pub ip: InputParams,
+    pub mutation_func: MutationFunc,
+}
+
+impl EvoState {
+    pub fn mutate(&mut self) -> Self {
+        let ip = self.mutation_func.mutate(&self.ip);
+        let f = self.mutation_func.clone();
+        Self {
+            ip,
+            mutation_func: f,
+        }
+
+    }
+}
+
+// fn get_initial_evostates(n: usize) -> Vec<>
+
 #[derive(Clone, Serialize, Deserialize)]
 // #[serde(default)]
 pub struct EvoVmmc {
@@ -27,7 +48,7 @@ pub struct EvoVmmc {
     ip: InputParams,
 
     pub fitness_func: FitnessFunc,
-    pub mutation_func: MutationFunc,
+    pub initial_mutation_func: MutationFunc,
 
     num_generations: usize,
     survivors_per_generation: usize, // # of children post-pruning
@@ -64,7 +85,7 @@ impl EvoVmmc {
     // TODO: how to derive new generation from old?
     pub fn step_all(&mut self, rng: &mut SmallRng) {
         // Create initial generation
-        let mut active_ips: Vec<InputParams> = vec![
+        let mut active_states: Vec<EvoState> = vec![
             InputParams::default();
             self.survivors_per_generation
                 * self.children_per_survivor
@@ -76,7 +97,7 @@ impl EvoVmmc {
             let children = self.step_generation(&active_ips, rng);
             // 2.) Use Fitness function to trim down to the survivors
             // [Ips] -> [Vmmc] -> [Ip]
-            let survivor_ips = prune(
+            let survivor_states = prune(
                 &active_ips,
                 children,
                 self.survivors_per_generation(),
@@ -84,18 +105,20 @@ impl EvoVmmc {
             );
             // 3.) Use Mutation function to get back to normal number of sims
             // [(Ip)] -> [Ip]
-            active_ips = self.spawn_children(survivor_ips);
+            // [Sim] -> [Sim]
+            active_ips = self.spawn_children(survivor_states);
         }
     }
 
     // generate children from survivors of previously generations
     // survivors: [survivors_per_generation; Vmmc] -> p[]
-    pub fn spawn_children(&self, survivors: Vec<InputParams>) -> Vec<InputParams> {
+    pub fn spawn_children(&self, survivors: Vec<EvoState>) -> Vec<EvoState> {
         let mut children = Vec::new();
-        for ip in survivors.iter() {
+        for mut s in survivors.into_iter() {
             for _ in 0..self.children_per_survivor {
-                let child_ip = self.mutation_func.mutate(ip);
-                children.push(child_ip);
+                let child_state = s.mutate();
+                // let child_ip = self.mutation_func.mutate(ip);
+                children.push(child_state);
             }
         }
         children
@@ -114,7 +137,7 @@ impl Default for EvoVmmc {
         Self {
             ip,
             fitness_func: FitnessFunc::PolygonSum,
-            mutation_func: MutationFunc::UniformRandom(0.1),
+            initial_mutation_func: MutationFunc::UniformRandom(0.1),
             seed,
             num_generations,
             children_per_survivor,

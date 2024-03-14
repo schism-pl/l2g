@@ -1,4 +1,4 @@
-use crate::fitness::FitnessFunc;
+use crate::{evo_vmmc::EvoState, fitness::FitnessFunc};
 use vmmc::{vmmc::Vmmc, InputParams};
 
 fn get_index_of_least_fit(fitness: &FitnessFunc, values: &[Vmmc]) -> usize {
@@ -16,21 +16,21 @@ fn get_index_of_least_fit(fitness: &FitnessFunc, values: &[Vmmc]) -> usize {
 // Note: this function is implemented assuming that computing fitness is cheap
 // pretty easy to optimize if that isn't the case
 pub fn prune(
-    ips: &[InputParams],
+    states: &[EvoState],
     vmmcs: Vec<Vmmc>,
     prune_to: usize,
     fitness: &FitnessFunc,
-) -> Vec<InputParams> {
+) -> Vec<EvoState> {
     // let n = self.params.survivors_per_generation();
     let mut survivors = Vec::new();
-    let mut survivor_ips = Vec::new();
+    let mut survivor_states = Vec::new();
 
     for (idx, vmmc) in vmmcs.into_iter().enumerate() {
-        let ip = ips[idx].clone();
+        let s = states[idx].clone();
         // the first n children get to start as survivors
         if idx < prune_to {
             survivors.push(vmmc);
-            survivor_ips.push(ip);
+            survivor_states.push(s);
             continue;
         }
         // attempt to replace one of the survivors
@@ -38,8 +38,8 @@ pub fn prune(
         let index = get_index_of_least_fit(fitness, &survivors);
         if fit > fitness.eval(&survivors[index]) {
             survivors[index] = vmmc;
-            survivor_ips[index] = ip;
+            survivor_states[index] = s;
         }
     }
-    survivor_ips
+    survivor_states
 }
