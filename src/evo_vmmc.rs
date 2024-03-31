@@ -8,27 +8,67 @@ use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
 
+
+
 pub fn run_fresh_vmmc(ip: &InputParams, rng: &mut SmallRng) -> Vmmc {
     let mut vmmc = vmmc_from_config(&ip, rng);
     let _: Result<()> = run_vmmc(&mut vmmc, ip.protocol.clone(), vmmc::no_callback(), rng);
     vmmc
 }
 
+
+// as polynomial, to polynomial
+
 // TODO: add diagram to markdown
 // 0. load config using serde (has embedded inputconfig?)
 // 1. Spin up first generation from InputConfig
 // 2.
 
-#[derive(Clone)]
 
+// Current strat: just ignore the synthesis protocol in the ip
+
+#[derive(Clone)]
 pub struct EvoState {
     pub ip: InputParams,
     pub mutation_func: MutationFunc,
 }
 
+
 impl EvoState {
-    pub fn mutate(&mut self) -> Self {
-        let ip = self.mutation_func.mutate(&self.ip);
+    // fn uniform_random_mutate(&mut self, ip: &InputParams) -> InputParams {
+    //     unimplemented!()
+    // }
+
+    // fn uniform_nn_mutate(&mut self, ip: &InputParams) -> InputParams {
+    //     unimplemented!()
+    // }
+
+
+    // pub fn mutate(&mut self, ip: &InputParams) -> InputParams {
+    //     use MutationFunc::*;
+
+    //     match &mut self.mutation_func {
+    //         UniformRandom(interaction_energy_poly, chemical_potential_poly, mag) => {
+    //             let new_interaction_energy_poly = perturb_poly(interaction_energy_poly, mag);
+    //             let new_chemical_potential_poly = perturb_poly(chemical_potential_poly, mag);
+    //             UniformRandomCoefficients(new_interaction_energy_poly,)
+    //         },
+    //         LearningToGrowClassic(nn) => {unimplemented!()},
+    //     }
+    // }
+}
+
+impl EvoState {
+
+    pub fn new(ip: InputParams, mutation_func: MutationFunc) -> Self {
+        Self {
+            ip: ip.clone(),
+            mutation_func: mutation_func.clone()
+        }
+    }
+
+    pub fn mutate(&mut self, rng: &mut SmallRng) -> Self {
+        let ip = self.mutation_func.mutate(rng, &self.ip);
         let f = self.mutation_func.clone();
         Self {
             ip,
@@ -45,7 +85,7 @@ impl EvoState {
 pub struct EvoVmmc {
     // TODO: change this to u64
     pub seed: i64, // toml crashes when I try to store as u64?
-    ip: InputParams,
+    initial_ip: InputParams,
 
     pub fitness_func: FitnessFunc,
     pub initial_mutation_func: MutationFunc,
@@ -56,8 +96,8 @@ pub struct EvoVmmc {
 }
 
 impl EvoVmmc {
-    pub fn ip(&self) -> &InputParams {
-        &self.ip
+    pub fn initial_ip(&self) -> &InputParams {
+        &self.initial_ip
     }
 
     pub fn num_generations(&self) -> usize {
@@ -72,11 +112,27 @@ impl EvoVmmc {
         self.survivors_per_generation
     }
 
+    pub fn generation_size(&self) -> usize {
+        self.survivors_per_generation * self.children_per_survivor
+    }
+
+
+    pub fn initial_evo_state(&self) -> EvoState {
+        EvoState::new(self.initial_ip.clone(), self.initial_mutation_func.clone())
+    }
+
+    pub fn initial_evo_states(&self) -> Vec<EvoState> {
+        vec![
+            self.initial_evo_state();
+            self.generation_size()
+        ]
+    }
+
     // Executes a generation
-    fn step_generation(&mut self, ips: &[InputParams], rng: &mut SmallRng) -> Vec<Vmmc> {
+    fn step_generation(&mut self, states: &[EvoState], rng: &mut SmallRng) -> Vec<Vmmc> {
         let mut sims = Vec::new();
-        for ip in ips.iter() {
-            let vmmc = run_fresh_vmmc(ip, rng);
+        for state in states.iter() {
+            let vmmc = run_fresh_vmmc(&state.ip, rng);
             sims.push(vmmc);
         }
         sims
@@ -85,20 +141,16 @@ impl EvoVmmc {
     // TODO: how to derive new generation from old?
     pub fn step_all(&mut self, rng: &mut SmallRng) {
         // Create initial generation
-        let mut active_states: Vec<EvoState> = vec![
-            InputParams::default();
-            self.survivors_per_generation
-                * self.children_per_survivor
-        ];
+        let mut evo_states = self.initial_evo_states();
         for idx in 0..self.num_generations {
             println!("Starting generation {:?}", idx);
             // 1.) Execute a generations worth of sims
             // [IP] -> [Vmmc]
-            let children = self.step_generation(&active_ips, rng);
+            let children = self.step_generation(&evo_states, rng);
             // 2.) Use Fitness function to trim down to the survivors
             // [Ips] -> [Vmmc] -> [Ip]
             let survivor_states = prune(
-                &active_ips,
+                &evo_states,
                 children,
                 self.survivors_per_generation(),
                 &self.fitness_func,
@@ -106,17 +158,17 @@ impl EvoVmmc {
             // 3.) Use Mutation function to get back to normal number of sims
             // [(Ip)] -> [Ip]
             // [Sim] -> [Sim]
-            active_ips = self.spawn_children(survivor_states);
+            evo_states = self.spawn_children(rng, survivor_states);
         }
     }
 
     // generate children from survivors of previously generations
     // survivors: [survivors_per_generation; Vmmc] -> p[]
-    pub fn spawn_children(&self, survivors: Vec<EvoState>) -> Vec<EvoState> {
+    pub fn spawn_children(&self, rng: &mut SmallRng, survivors: Vec<EvoState>) -> Vec<EvoState> {
         let mut children = Vec::new();
         for mut s in survivors.into_iter() {
             for _ in 0..self.children_per_survivor {
-                let child_state = s.mutate();
+                let child_state = s.mutate(rng);
                 // let child_ip = self.mutation_func.mutate(ip);
                 children.push(child_state);
             }
@@ -127,7 +179,7 @@ impl EvoVmmc {
 
 impl Default for EvoVmmc {
     fn default() -> Self {
-        let ip = InputParams::default();
+        let initial_ip = InputParams::default();
         let seed = SmallRng::from_entropy().gen::<i64>();
 
         let num_generations = 3;
@@ -135,9 +187,9 @@ impl Default for EvoVmmc {
         let survivors_per_generation = 1;
 
         Self {
-            ip,
+            initial_ip,
             fitness_func: FitnessFunc::PolygonSum,
-            initial_mutation_func: MutationFunc::UniformRandom(0.1),
+            initial_mutation_func: MutationFunc::UniformRandomCoefficients([8.0,0.0,0.0,0.0].to_vec(), [0.0,0.0,0.0,0.0].to_vec(), 0.1),
             seed,
             num_generations,
             children_per_survivor,

@@ -25,7 +25,7 @@ fn main() -> anyhow::Result<()> {
 
     // Get default params
     // Seed the rng
-    let seed = evo_vmmc.ip().seed;
+    let seed = evo_vmmc.initial_ip().seed;
     println!("Using seed = {:x?}", seed);
     let mut rng = SmallRng::seed_from_u64(seed as u64);
 
