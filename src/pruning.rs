@@ -1,12 +1,12 @@
 use crate::{evo_vmmc::EvoState, fitness::FitnessFunc};
-use vmmc::{vmmc::Vmmc, InputParams};
+use vmmc::vmmc::Vmmc;
 
 fn get_index_of_least_fit(fitness: &FitnessFunc, values: &[Vmmc]) -> usize {
     let mut lowest = f64::MIN;
     let mut index = 0;
     for (idx, v) in values.iter().enumerate() {
-        if fitness.eval(&v) < lowest {
-            lowest = fitness.eval(&v);
+        if fitness.eval(v) < lowest {
+            lowest = fitness.eval(v);
             index = idx;
         }
     }

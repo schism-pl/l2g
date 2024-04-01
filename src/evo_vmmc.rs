@@ -6,16 +6,19 @@ use anyhow::Result;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
+use vmmc::protocol::SynthesisProtocol;
 use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
-
-
 
 pub fn run_fresh_vmmc(ip: &InputParams, rng: &mut SmallRng) -> Vmmc {
     let mut vmmc = vmmc_from_config(&ip, rng);
-    let _: Result<()> = run_vmmc(&mut vmmc, ip.protocol.clone(), vmmc::no_callback(), rng);
+    let _: Result<()> = run_vmmc(
+        &mut vmmc,
+        ip.protocol.megastep_iter(),
+        vmmc::no_callback(),
+        rng,
+    );
     vmmc
 }
-
 
 // as polynomial, to polynomial
 
@@ -23,7 +26,6 @@ pub fn run_fresh_vmmc(ip: &InputParams, rng: &mut SmallRng) -> Vmmc {
 // 0. load config using serde (has embedded inputconfig?)
 // 1. Spin up first generation from InputConfig
 // 2.
-
 
 // Current strat: just ignore the synthesis protocol in the ip
 
@@ -33,55 +35,25 @@ pub struct EvoState {
     pub mutation_func: MutationFunc,
 }
 
-
 impl EvoState {
-    // fn uniform_random_mutate(&mut self, ip: &InputParams) -> InputParams {
-    //     unimplemented!()
-    // }
-
-    // fn uniform_nn_mutate(&mut self, ip: &InputParams) -> InputParams {
-    //     unimplemented!()
-    // }
-
-
-    // pub fn mutate(&mut self, ip: &InputParams) -> InputParams {
-    //     use MutationFunc::*;
-
-    //     match &mut self.mutation_func {
-    //         UniformRandom(interaction_energy_poly, chemical_potential_poly, mag) => {
-    //             let new_interaction_energy_poly = perturb_poly(interaction_energy_poly, mag);
-    //             let new_chemical_potential_poly = perturb_poly(chemical_potential_poly, mag);
-    //             UniformRandomCoefficients(new_interaction_energy_poly,)
-    //         },
-    //         LearningToGrowClassic(nn) => {unimplemented!()},
-    //     }
-    // }
-}
-
-impl EvoState {
-
     pub fn new(ip: InputParams, mutation_func: MutationFunc) -> Self {
         Self {
             ip: ip.clone(),
-            mutation_func: mutation_func.clone()
+            mutation_func: mutation_func.clone(),
         }
     }
 
     pub fn mutate(&mut self, rng: &mut SmallRng) -> Self {
-        let ip = self.mutation_func.mutate(rng, &self.ip);
+        self.mutation_func.mutate(rng);
         let f = self.mutation_func.clone();
         Self {
-            ip,
+            ip: self.ip.clone(),
             mutation_func: f,
         }
-
     }
 }
 
-// fn get_initial_evostates(n: usize) -> Vec<>
-
 #[derive(Clone, Serialize, Deserialize)]
-// #[serde(default)]
 pub struct EvoVmmc {
     // TODO: change this to u64
     pub seed: i64, // toml crashes when I try to store as u64?
@@ -116,16 +88,12 @@ impl EvoVmmc {
         self.survivors_per_generation * self.children_per_survivor
     }
 
-
     pub fn initial_evo_state(&self) -> EvoState {
         EvoState::new(self.initial_ip.clone(), self.initial_mutation_func.clone())
     }
 
     pub fn initial_evo_states(&self) -> Vec<EvoState> {
-        vec![
-            self.initial_evo_state();
-            self.generation_size()
-        ]
+        vec![self.initial_evo_state(); self.generation_size()]
     }
 
     // Executes a generation
@@ -186,10 +154,17 @@ impl Default for EvoVmmc {
         let children_per_survivor = 3;
         let survivors_per_generation = 1;
 
+        let num_megasteps = initial_ip.protocol.num_megasteps();
+
         Self {
             initial_ip,
             fitness_func: FitnessFunc::PolygonSum,
-            initial_mutation_func: MutationFunc::UniformRandomCoefficients([8.0,0.0,0.0,0.0].to_vec(), [0.0,0.0,0.0,0.0].to_vec(), 0.1),
+            initial_mutation_func: MutationFunc::UniformRandomCoefficients(
+                SynthesisProtocol::new("8.0", "0.0", num_megasteps),
+                [8.0, 0.0, 0.0, 0.0].to_vec(),
+                [0.0, 0.0, 0.0, 0.0].to_vec(),
+                0.1,
+            ),
             seed,
             num_generations,
             children_per_survivor,
