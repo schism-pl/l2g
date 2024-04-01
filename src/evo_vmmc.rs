@@ -1,13 +1,19 @@
+use std::fs::create_dir_all;
+
 // use crate::config::L2GInputParams;
 use crate::fitness::FitnessFunc;
 use crate::mutation::MutationFunc;
+use crate::nn::NueralNet;
 use crate::pruning::prune;
 use anyhow::Result;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
+use vmmc::io::write_geometry_png;
 use vmmc::protocol::SynthesisProtocol;
 use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
+
+// TODO: parallelize executing simulations
 
 pub fn run_fresh_vmmc(ip: &InputParams, rng: &mut SmallRng) -> Vmmc {
     let mut vmmc = vmmc_from_config(&ip, rng);
@@ -63,7 +69,7 @@ pub struct EvoVmmc {
     pub initial_mutation_func: MutationFunc,
 
     num_generations: usize,
-    survivors_per_generation: usize, // # of children post-pruning
+    survivors_per_generation: usize,
     children_per_survivor: usize,
 }
 
@@ -106,17 +112,38 @@ impl EvoVmmc {
         sims
     }
 
-    // TODO: how to derive new generation from old?
     pub fn step_all(&mut self, rng: &mut SmallRng) {
         // Create initial generation
         let mut evo_states = self.initial_evo_states();
         for idx in 0..self.num_generations {
             println!("Starting generation {:?}", idx);
+
             // 1.) Execute a generations worth of sims
-            // [IP] -> [Vmmc]
             let children = self.step_generation(&evo_states, rng);
+            // Dump outputs
+            // TODO: need to get actual output path from config object
+            for (child_idx, child) in children.iter().enumerate() {
+                let p_str = format!("./out/{idx}/{child_idx}");
+                let out_path = std::path::Path::new(&p_str);
+                create_dir_all(out_path).unwrap();
+                let ip = &evo_states[idx].ip;
+                // dump full config toml to output directory
+                // TODO: dump final stats, both here and in the original vmmc
+                let toml = toml::to_string(&ip).unwrap();
+                std::fs::write(format!("{p_str}/config.toml"), toml).expect("Unable to write file");
+                write_geometry_png(&child, &format!("{p_str}/geometry.png"));
+                // write_protocols_png(&ip, &config.protocols());
+            }
+
+            println!(
+                "Children executed: fitnesses = {:?}",
+                children
+                    .iter()
+                    .map(|c| self.fitness_func.eval(c))
+                    .collect::<Vec<f64>>()
+            );
             // 2.) Use Fitness function to trim down to the survivors
-            // [Ips] -> [Vmmc] -> [Ip]
+            println!("Pruning survivors");
             let survivor_states = prune(
                 &evo_states,
                 children,
@@ -124,8 +151,7 @@ impl EvoVmmc {
                 &self.fitness_func,
             );
             // 3.) Use Mutation function to get back to normal number of sims
-            // [(Ip)] -> [Ip]
-            // [Sim] -> [Sim]
+            println!("Generating children");
             evo_states = self.spawn_children(rng, survivor_states);
         }
     }
@@ -154,17 +180,18 @@ impl Default for EvoVmmc {
         let children_per_survivor = 3;
         let survivors_per_generation = 1;
 
-        let num_megasteps = initial_ip.protocol.num_megasteps();
+        // let num_megasteps = initial_ip.protocol.num_megasteps();
 
         Self {
             initial_ip,
             fitness_func: FitnessFunc::PolygonSum,
-            initial_mutation_func: MutationFunc::UniformRandomCoefficients(
-                SynthesisProtocol::new("8.0", "0.0", num_megasteps),
-                [8.0, 0.0, 0.0, 0.0].to_vec(),
-                [0.0, 0.0, 0.0, 0.0].to_vec(),
-                0.1,
-            ),
+            initial_mutation_func: MutationFunc::LearningToGrowClassic(NueralNet::new()),
+            // initial_mutation_func: MutationFunc::UniformRandomCoefficients(
+            //     SynthesisProtocol::new("8.0", "0.0", num_megasteps),
+            //     [8.0, 0.0, 0.0, 0.0].to_vec(),
+            //     [0.0, 0.0, 0.0, 0.0].to_vec(),
+            //     0.1,
+            // ),
             seed,
             num_generations,
             children_per_survivor,
