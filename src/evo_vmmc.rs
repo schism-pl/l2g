@@ -13,15 +13,12 @@ use vmmc::io::{write_geometry_png, write_protocols_png, write_stats};
 use vmmc::protocol::ProtocolIter;
 use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
 use MutationFunc::*;
+use rayon::prelude::*;
 
-// TODO: parallelize executing simulations
-
-//TODO: this should not be using ip.protocol.megastep_iter() ????
 pub fn run_fresh_vmmc(ip: &InputParams, protocol_iter: impl ProtocolIter, rng: &mut SmallRng) -> Vmmc {
     let mut vmmc = vmmc_from_config(&ip, rng);
     let _: Result<()> = run_vmmc(
         &mut vmmc,
-        // ip.protocol.megastep_iter(),
         protocol_iter,
         vmmc::no_callback(),
         rng,
@@ -29,15 +26,7 @@ pub fn run_fresh_vmmc(ip: &InputParams, protocol_iter: impl ProtocolIter, rng: &
     vmmc
 }
 
-// as polynomial, to polynomial
-
 // TODO: add diagram to markdown
-// 0. load config using serde (has embedded inputconfig?)
-// 1. Spin up first generation from InputConfig
-// 2.
-
-// Current strat: just ignore the synthesis protocol in the ip
-
 #[derive(Clone)]
 pub struct EvoState {
     pub ip: InputParams,
@@ -108,18 +97,21 @@ impl EvoVmmc {
     // Executes a generation
     fn step_generation(&mut self, states: &[EvoState], rng: &mut SmallRng) -> Vec<Vmmc> {
         use MutationFunc::*;
-        let mut sims = Vec::new();
-        for state in states.iter() {
-            let vmmc = match &state.mutation_func {
-                UniformRandomCoefficients(protocol,_,_,_) => run_fresh_vmmc(&state.ip, protocol.megastep_iter(), rng),
-                LearningToGrowClassic(nn, protocol) => run_fresh_vmmc(&state.ip, nn.current_protocol(protocol), rng),
-            };
-            sims.push(vmmc);
+        let seeds: Vec<u64> = (0..states.len()).map(|_| rng.gen()).collect();
+        states.par_iter().enumerate().map(|(idx, s)| {
+        let thread_seed = seeds[idx];
+        let mut thread_rng = SmallRng::seed_from_u64(thread_seed);
+        match &s.mutation_func {
+                    UniformRandomCoefficients(protocol,_,_,_) => run_fresh_vmmc(&s.ip, protocol.megastep_iter(), &mut thread_rng),
+                    LearningToGrowClassic(nn, protocol) => run_fresh_vmmc(&s.ip, nn.current_protocol(protocol), &mut thread_rng),
         }
-        sims
+    }
+    ).collect()
     }
 
     pub fn step_all(&mut self, rng: &mut SmallRng) {
+        println!("Creating threadpool of {} workers", self.generation_size());
+
         // Create initial generation
         let mut evo_states = self.initial_evo_states();
         for idx in 0..self.num_generations {
@@ -139,8 +131,6 @@ impl EvoVmmc {
                 // TODO: this isnt actually what we need, we need the mutation_func
                 let toml = toml::to_string(&ip).unwrap();
                 std::fs::write(format!("{p_str}/config.toml"), toml).expect("Unable to write file");
-                // let toml = toml::to_string(&mutation_func).unwrap();
-                // std::fs::write(format!("{p_str}/state.toml"), toml).expect("Unable to write file");
                 write_geometry_png(&child, &format!("{p_str}/geometry.png"));
                 match mutation_func {
                     UniformRandomCoefficients(protocol,_,_,_) => write_protocols_png(protocol.megastep_iter(), &format!("{p_str}/protocols.png")),

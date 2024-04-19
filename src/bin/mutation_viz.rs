@@ -42,10 +42,10 @@ use vmmc::{io::write_protocols_png, protocol::SynthesisProtocol};
 //     }
 // }
 
-fn nn_protocol_to_png(protocol: &SynthesisProtocol, pathname: &str) {
-    // protocol.megastep_iter(), &format!("{p_str}/protocols.png"
-    write_protocols_png(protocol.megastep_iter(), pathname)
-}
+// fn nn_protocol_to_png(protocol: &SynthesisProtocol, pathname: &str) {
+//     // protocol.megastep_iter(), &format!("{p_str}/protocols.png"
+//     write_protocols_png(protocol.megastep_iter(), pathname)
+// }
 
 fn main() -> anyhow::Result<()> {
     // env_logger::init();

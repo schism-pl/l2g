@@ -1,16 +1,10 @@
 use clap::Parser;
-use l2g::{evo_vmmc::EvoVmmc, nn};
+use l2g::evo_vmmc::EvoVmmc;
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use std::fs::{self, create_dir_all};
 use vmmc::cli::VmmcConfig;
 
-// correctness criteria:
-// 1. average energy monotonically increases (decreases?)
-// 2. particles visibly stick together in visualization
-// 3. values match other impls (approximately)
-
-// TODO: builder pattern
 fn main() -> anyhow::Result<()> {
     env_logger::init();
     // Get commandline arguments
@@ -54,7 +48,6 @@ fn main() -> anyhow::Result<()> {
     println!("Writing output to {}\n", config.output_dir());
     let out_path = std::path::Path::new(config.output_dir());
     create_dir_all(out_path).unwrap();
-    // clear_out_files(&config)?;
 
     // dump full config toml to output directory 
     let toml = toml::to_string(&evo_vmmc).unwrap();
