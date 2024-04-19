@@ -19,7 +19,7 @@ pub fn run_fresh_vmmc(
     protocol_iter: impl ProtocolIter,
     rng: &mut SmallRng,
 ) -> Vmmc {
-    let mut vmmc = vmmc_from_config(&ip, rng);
+    let mut vmmc = vmmc_from_config(ip, rng);
     let _: Result<()> = run_vmmc(&mut vmmc, protocol_iter, vmmc::no_callback(), rng);
     vmmc
 }
@@ -135,18 +135,18 @@ impl EvoVmmc {
                 // TODO: this isnt actually what we need, we need the mutation_func
                 let toml = toml::to_string(&ip).unwrap();
                 std::fs::write(format!("{p_str}/config.toml"), toml).expect("Unable to write file");
-                write_geometry_png(&child, &format!("{p_str}/geometry.png"));
+                write_geometry_png(child, &format!("{p_str}/geometry.png"));
                 match mutation_func {
                     UniformRandomCoefficients(protocol, _, _, _) => write_protocols_png(
                         protocol.megastep_iter(),
                         &format!("{p_str}/protocols.png"),
                     ),
                     LearningToGrowClassic(nn, protocol) => write_protocols_png(
-                        nn.current_protocol(&protocol),
+                        nn.current_protocol(protocol),
                         &format!("{p_str}/protocols.png"),
                     ),
                 };
-                write_stats(&child, &format!("{p_str}/stats.txt"))
+                write_stats(child, &format!("{p_str}/stats.txt"))
             }
 
             println!(
@@ -201,7 +201,7 @@ impl Default for EvoVmmc {
             initial_ip,
             fitness_func: FitnessFunc::PolygonSum,
             initial_mutation_func: MutationFunc::LearningToGrowClassic(
-                NueralNet::from_config(&&nn_config),
+                NueralNet::from_config(&nn_config),
                 protocol,
             ),
             seed,
