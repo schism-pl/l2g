@@ -3,23 +3,26 @@ use std::fs::create_dir_all;
 // use crate::config::L2GInputParams;
 use crate::fitness::FitnessFunc;
 use crate::mutation::MutationFunc;
-use crate::nn::NueralNet;
+use crate::nn::{NnConfig, NueralNet};
 use crate::pruning::prune;
 use anyhow::Result;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
-use vmmc::io::write_geometry_png;
-use vmmc::protocol::SynthesisProtocol;
+use vmmc::io::{write_geometry_png, write_protocols_png, write_stats};
+use vmmc::protocol::ProtocolIter;
 use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
+use MutationFunc::*;
 
 // TODO: parallelize executing simulations
 
-pub fn run_fresh_vmmc(ip: &InputParams, rng: &mut SmallRng) -> Vmmc {
+//TODO: this should not be using ip.protocol.megastep_iter() ????
+pub fn run_fresh_vmmc(ip: &InputParams, protocol_iter: impl ProtocolIter, rng: &mut SmallRng) -> Vmmc {
     let mut vmmc = vmmc_from_config(&ip, rng);
     let _: Result<()> = run_vmmc(
         &mut vmmc,
-        ip.protocol.megastep_iter(),
+        // ip.protocol.megastep_iter(),
+        protocol_iter,
         vmmc::no_callback(),
         rng,
     );
@@ -104,9 +107,13 @@ impl EvoVmmc {
 
     // Executes a generation
     fn step_generation(&mut self, states: &[EvoState], rng: &mut SmallRng) -> Vec<Vmmc> {
+        use MutationFunc::*;
         let mut sims = Vec::new();
         for state in states.iter() {
-            let vmmc = run_fresh_vmmc(&state.ip, rng);
+            let vmmc = match &state.mutation_func {
+                UniformRandomCoefficients(protocol,_,_,_) => run_fresh_vmmc(&state.ip, protocol.megastep_iter(), rng),
+                LearningToGrowClassic(nn, protocol) => run_fresh_vmmc(&state.ip, nn.current_protocol(protocol), rng),
+            };
             sims.push(vmmc);
         }
         sims
@@ -121,18 +128,25 @@ impl EvoVmmc {
             // 1.) Execute a generations worth of sims
             let children = self.step_generation(&evo_states, rng);
             // Dump outputs
-            // TODO: need to get actual output path from config object
             for (child_idx, child) in children.iter().enumerate() {
                 let p_str = format!("./out/{idx}/{child_idx}");
                 let out_path = std::path::Path::new(&p_str);
                 create_dir_all(out_path).unwrap();
                 let ip = &evo_states[idx].ip;
-                // dump full config toml to output directory
-                // TODO: dump final stats, both here and in the original vmmc
+                let mutation_func = &evo_states[idx].mutation_func;
+
+
+                // TODO: this isnt actually what we need, we need the mutation_func
                 let toml = toml::to_string(&ip).unwrap();
                 std::fs::write(format!("{p_str}/config.toml"), toml).expect("Unable to write file");
+                // let toml = toml::to_string(&mutation_func).unwrap();
+                // std::fs::write(format!("{p_str}/state.toml"), toml).expect("Unable to write file");
                 write_geometry_png(&child, &format!("{p_str}/geometry.png"));
-                // write_protocols_png(&ip, &config.protocols());
+                match mutation_func {
+                    UniformRandomCoefficients(protocol,_,_,_) => write_protocols_png(protocol.megastep_iter(), &format!("{p_str}/protocols.png")),
+                    LearningToGrowClassic(nn, protocol) => write_protocols_png(nn.current_protocol(&protocol), &format!("{p_str}/protocols.png")),
+                };
+                write_stats(&child, &format!("{p_str}/stats.txt"))
             }
 
             println!(
@@ -157,13 +171,11 @@ impl EvoVmmc {
     }
 
     // generate children from survivors of previously generations
-    // survivors: [survivors_per_generation; Vmmc] -> p[]
     pub fn spawn_children(&self, rng: &mut SmallRng, survivors: Vec<EvoState>) -> Vec<EvoState> {
         let mut children = Vec::new();
         for mut s in survivors.into_iter() {
             for _ in 0..self.children_per_survivor {
                 let child_state = s.mutate(rng);
-                // let child_ip = self.mutation_func.mutate(ip);
                 children.push(child_state);
             }
         }
@@ -175,23 +187,22 @@ impl Default for EvoVmmc {
     fn default() -> Self {
         let initial_ip = InputParams::default();
         let seed = SmallRng::from_entropy().gen::<i64>();
+        let nn_seed = SmallRng::from_entropy().gen::<u64>();
+
 
         let num_generations = 3;
         let children_per_survivor = 3;
         let survivors_per_generation = 1;
 
-        // let num_megasteps = initial_ip.protocol.num_megasteps();
+        // let total_t = initial_ip.protocol.num_megasteps();
+        let protocol = initial_ip.protocol.clone();
+
+        let nn_config = NnConfig::new(nn_seed, 1000, 0.1);
 
         Self {
             initial_ip,
             fitness_func: FitnessFunc::PolygonSum,
-            initial_mutation_func: MutationFunc::LearningToGrowClassic(NueralNet::new()),
-            // initial_mutation_func: MutationFunc::UniformRandomCoefficients(
-            //     SynthesisProtocol::new("8.0", "0.0", num_megasteps),
-            //     [8.0, 0.0, 0.0, 0.0].to_vec(),
-            //     [0.0, 0.0, 0.0, 0.0].to_vec(),
-            //     0.1,
-            // ),
+            initial_mutation_func: MutationFunc::LearningToGrowClassic(NueralNet::from_config(&&nn_config), protocol),
             seed,
             num_generations,
             children_per_survivor,

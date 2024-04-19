@@ -1,5 +1,5 @@
 use clap::Parser;
-use l2g::evo_vmmc::{self, EvoVmmc};
+use l2g::{evo_vmmc::EvoVmmc, nn};
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use std::fs::{self, create_dir_all};
@@ -17,9 +17,11 @@ fn main() -> anyhow::Result<()> {
     let config = VmmcConfig::parse();
 
     let mut evo_vmmc = if config.input() != "" {
+        println!("Reading configuration from {}", config.input());
         let contents = fs::read_to_string(config.input())?;
         toml::from_str(&contents)?
     } else {
+        println!("No configuration provided, using default config");
         EvoVmmc::default()
     };
 
@@ -46,8 +48,7 @@ fn main() -> anyhow::Result<()> {
         "Each simulation runs for {} megasteps",
         ip.protocol.num_megasteps()
     );
-    // pub protocol: SynthesisProtocol,
-    // pub shapes: Vec<Morphology>,
+
 
     // Init I/O
     println!("Writing output to {}\n", config.output_dir());
@@ -55,7 +56,7 @@ fn main() -> anyhow::Result<()> {
     create_dir_all(out_path).unwrap();
     // clear_out_files(&config)?;
 
-    // dump full config toml to output directory
+    // dump full config toml to output directory 
     let toml = toml::to_string(&evo_vmmc).unwrap();
     fs::write(config.toml(), toml).expect("Unable to write file");
 

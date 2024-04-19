@@ -13,6 +13,10 @@ path = "src/bin/l2g.rs"
 name = "batch_experiment"
 path = "src/bin/batch_experiment.rs"
 
+[[bin]]
+name = "mutation_viz"
+path = "src/bin/mutation_viz.rs"
+
 [dependencies]
 anyhow = "1.0.75" # better errors
 clap = { version = "4.4.6", features = ["derive"] } # commandline parsing

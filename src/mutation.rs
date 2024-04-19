@@ -14,13 +14,12 @@ pub fn terms_to_polynomial(terms: &[f64]) -> String {
         }
     }
     s
-    // Expr::from_str(&s).unwrap()
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum MutationFunc {
     UniformRandomCoefficients(SynthesisProtocol, Vec<f64>, Vec<f64>, f64), // terms, order, percentage of range that any one coefficient can contribute
-    LearningToGrowClassic(NueralNet),
+    LearningToGrowClassic(NueralNet, SynthesisProtocol), // argument 2 = # of steps for each protocol
 }
 
 // TODO: figure out a rationale to how we scale random values
@@ -34,7 +33,7 @@ fn perturb_poly(rng: &mut SmallRng, terms: &[f64], lower: f64, upper: f64, mag: 
     }
     new_coefficients
 }
-
+// TODO: current_protocol?
 impl MutationFunc {
     pub fn mutate(&mut self, rng: &mut SmallRng) {
         use MutationFunc::*;
@@ -59,7 +58,7 @@ impl MutationFunc {
                 );
                 *protocol = new_protocol
             }
-            LearningToGrowClassic(nn) => {
+            LearningToGrowClassic(nn, _protocol) => {
                 nn.mutate();
             }
         }
