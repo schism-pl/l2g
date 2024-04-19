@@ -9,7 +9,7 @@ fn main() -> anyhow::Result<()> {
     println!("Writing output to {}\n", outdir);
     let out_path = std::path::Path::new(outdir);
     create_dir_all(out_path).unwrap();
-    
+
     for idx in 0..50 {
         println!("Mutation {idx}");
         let nn_config = NnConfig::new(1337, 1000, 0.1);
@@ -20,7 +20,5 @@ fn main() -> anyhow::Result<()> {
         nn.mutate();
     }
 
-
     Ok(())
 }
-

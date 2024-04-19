@@ -14,7 +14,7 @@ pub struct NnConfig {
 impl NnConfig {
     pub fn new(seed: u64, num_layers: usize, mutation_factor: f64) -> Self {
         Self {
-            seed, 
+            seed,
             num_layers,
             mutation_factor,
         }
@@ -66,7 +66,7 @@ impl NueralNet {
         NueralNet {
             layers,
             mutation_factor,
-        } 
+        }
     }
 
     pub fn from_config(config: &NnConfig) -> Self {
@@ -117,9 +117,7 @@ impl NueralNet {
     pub fn current_protocol<'a>(&'a self, protocol: &'a SynthesisProtocol) -> NnMegastepIter<'a> {
         NnMegastepIter::new(self, protocol)
     }
-
 }
-
 
 pub struct NnMegastepIter<'a> {
     nn: &'a NueralNet,
@@ -131,7 +129,13 @@ pub struct NnMegastepIter<'a> {
 
 impl<'a> NnMegastepIter<'a> {
     fn new(nn: &'a NueralNet, protocol: &'a SynthesisProtocol) -> Self {
-        Self { nn, t: 0.0, protocol, ep_accum: 0.0, mu_accum: 0.0 }
+        Self {
+            nn,
+            t: 0.0,
+            protocol,
+            ep_accum: 0.0,
+            mu_accum: 0.0,
+        }
     }
 }
 
@@ -143,11 +147,11 @@ impl<'a> Iterator for NnMegastepIter<'a> {
             return None;
         }
 
-        let (epsilon,mu) = self.nn.eval(self.t);
+        let (epsilon, mu) = self.nn.eval(self.t);
         let orig_epsilon = self.protocol.interaction_energy(self.t as usize);
-        let orig_mu =  self.protocol.chemical_potential(self.t as usize);
+        let orig_mu = self.protocol.chemical_potential(self.t as usize);
         self.ep_accum += epsilon;
-        self.mu_accum += mu; 
+        self.mu_accum += mu;
         let chemical_potential = (orig_mu + self.mu_accum).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + self.ep_accum).clamp(0.0, 20.0);
         let step = ProtocolStep::new(chemical_potential, interaction_energy);

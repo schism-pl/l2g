@@ -7,21 +7,20 @@ use crate::pruning::prune;
 use anyhow::Result;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use vmmc::io::{write_geometry_png, write_protocols_png, write_stats};
 use vmmc::protocol::ProtocolIter;
 use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
 use MutationFunc::*;
-use rayon::prelude::*;
 
-pub fn run_fresh_vmmc(ip: &InputParams, protocol_iter: impl ProtocolIter, rng: &mut SmallRng) -> Vmmc {
+pub fn run_fresh_vmmc(
+    ip: &InputParams,
+    protocol_iter: impl ProtocolIter,
+    rng: &mut SmallRng,
+) -> Vmmc {
     let mut vmmc = vmmc_from_config(&ip, rng);
-    let _: Result<()> = run_vmmc(
-        &mut vmmc,
-        protocol_iter,
-        vmmc::no_callback(),
-        rng,
-    );
+    let _: Result<()> = run_vmmc(&mut vmmc, protocol_iter, vmmc::no_callback(), rng);
     vmmc
 }
 
@@ -97,15 +96,22 @@ impl EvoVmmc {
     fn step_generation(&mut self, states: &[EvoState], rng: &mut SmallRng) -> Vec<Vmmc> {
         use MutationFunc::*;
         let seeds: Vec<u64> = (0..states.len()).map(|_| rng.gen()).collect();
-        states.par_iter().enumerate().map(|(idx, s)| {
-        let thread_seed = seeds[idx];
-        let mut thread_rng = SmallRng::seed_from_u64(thread_seed);
-        match &s.mutation_func {
-                    UniformRandomCoefficients(protocol,_,_,_) => run_fresh_vmmc(&s.ip, protocol.megastep_iter(), &mut thread_rng),
-                    LearningToGrowClassic(nn, protocol) => run_fresh_vmmc(&s.ip, nn.current_protocol(protocol), &mut thread_rng),
-        }
-    }
-    ).collect()
+        states
+            .par_iter()
+            .enumerate()
+            .map(|(idx, s)| {
+                let thread_seed = seeds[idx];
+                let mut thread_rng = SmallRng::seed_from_u64(thread_seed);
+                match &s.mutation_func {
+                    UniformRandomCoefficients(protocol, _, _, _) => {
+                        run_fresh_vmmc(&s.ip, protocol.megastep_iter(), &mut thread_rng)
+                    }
+                    LearningToGrowClassic(nn, protocol) => {
+                        run_fresh_vmmc(&s.ip, nn.current_protocol(protocol), &mut thread_rng)
+                    }
+                }
+            })
+            .collect()
     }
 
     pub fn step_all(&mut self, rng: &mut SmallRng) {
@@ -126,14 +132,19 @@ impl EvoVmmc {
                 let ip = &evo_states[idx].ip;
                 let mutation_func = &evo_states[idx].mutation_func;
 
-
                 // TODO: this isnt actually what we need, we need the mutation_func
                 let toml = toml::to_string(&ip).unwrap();
                 std::fs::write(format!("{p_str}/config.toml"), toml).expect("Unable to write file");
                 write_geometry_png(&child, &format!("{p_str}/geometry.png"));
                 match mutation_func {
-                    UniformRandomCoefficients(protocol,_,_,_) => write_protocols_png(protocol.megastep_iter(), &format!("{p_str}/protocols.png")),
-                    LearningToGrowClassic(nn, protocol) => write_protocols_png(nn.current_protocol(&protocol), &format!("{p_str}/protocols.png")),
+                    UniformRandomCoefficients(protocol, _, _, _) => write_protocols_png(
+                        protocol.megastep_iter(),
+                        &format!("{p_str}/protocols.png"),
+                    ),
+                    LearningToGrowClassic(nn, protocol) => write_protocols_png(
+                        nn.current_protocol(&protocol),
+                        &format!("{p_str}/protocols.png"),
+                    ),
                 };
                 write_stats(&child, &format!("{p_str}/stats.txt"))
             }
@@ -189,7 +200,10 @@ impl Default for EvoVmmc {
         Self {
             initial_ip,
             fitness_func: FitnessFunc::PolygonSum,
-            initial_mutation_func: MutationFunc::LearningToGrowClassic(NueralNet::from_config(&&nn_config), protocol),
+            initial_mutation_func: MutationFunc::LearningToGrowClassic(
+                NueralNet::from_config(&&nn_config),
+                protocol,
+            ),
             seed,
             num_generations,
             children_per_survivor,

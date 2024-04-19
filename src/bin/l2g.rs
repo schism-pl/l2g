@@ -43,13 +43,12 @@ fn main() -> anyhow::Result<()> {
         ip.protocol.num_megasteps()
     );
 
-
     // Init I/O
     println!("Writing output to {}\n", config.output_dir());
     let out_path = std::path::Path::new(config.output_dir());
     create_dir_all(out_path).unwrap();
 
-    // dump full config toml to output directory 
+    // dump full config toml to output directory
     let toml = toml::to_string(&evo_vmmc).unwrap();
     fs::write(config.toml(), toml).expect("Unable to write file");
 
