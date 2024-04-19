@@ -33,6 +33,7 @@ fn perturb_poly(rng: &mut SmallRng, terms: &[f64], lower: f64, upper: f64, mag: 
     }
     new_coefficients
 }
+
 // TODO: current_protocol?
 impl MutationFunc {
     pub fn mutate(&mut self, rng: &mut SmallRng) {
@@ -50,7 +51,7 @@ impl MutationFunc {
                     perturb_poly(rng, chemical_potential_poly, *mag, -10.0, 10.0);
                 *interaction_energy_poly = new_interaction_energy_poly.clone();
                 *chemical_potential_poly = new_chemical_potential_poly.clone();
-                // let mut new_ip = ip.clone();
+
                 let new_protocol = SynthesisProtocol::new(
                     &terms_to_polynomial(interaction_energy_poly),
                     &terms_to_polynomial(chemical_potential_poly),

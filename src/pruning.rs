@@ -21,7 +21,6 @@ pub fn prune(
     prune_to: usize,
     fitness: &FitnessFunc,
 ) -> Vec<EvoState> {
-    // let n = self.params.survivors_per_generation();
     let mut survivors = Vec::new();
     let mut survivor_states = Vec::new();
 

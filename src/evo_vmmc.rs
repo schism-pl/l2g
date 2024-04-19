@@ -1,6 +1,5 @@
 use std::fs::create_dir_all;
 
-// use crate::config::L2GInputParams;
 use crate::fitness::FitnessFunc;
 use crate::mutation::MutationFunc;
 use crate::nn::{NnConfig, NueralNet};
@@ -179,12 +178,10 @@ impl Default for EvoVmmc {
         let seed = SmallRng::from_entropy().gen::<i64>();
         let nn_seed = SmallRng::from_entropy().gen::<u64>();
 
-
         let num_generations = 3;
         let children_per_survivor = 3;
         let survivors_per_generation = 1;
 
-        // let total_t = initial_ip.protocol.num_megasteps();
         let protocol = initial_ip.protocol.clone();
 
         let nn_config = NnConfig::new(nn_seed, 1000, 0.1);
