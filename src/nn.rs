@@ -71,13 +71,6 @@ pub struct NueralNet {
 }
 
 impl NueralNet {
-    // pub fn new(layers: Vec<HiddenLayer>, mutation_factor: f64) -> Self {
-    //     NueralNet {
-    //         layers,
-    //         mutation_factor,
-    //     }
-    // }
-
     pub fn from_config(config: &NnConfig) -> Self {
         let mut rng = SmallRng::seed_from_u64(config.orig_seed as u64);
         let normal = Normal::new(0.0, 1.0).unwrap();
