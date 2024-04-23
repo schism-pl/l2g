@@ -1,8 +1,8 @@
 use std::fs::create_dir_all;
 
 use crate::fitness::FitnessFunc;
-use crate::mutation::MutationFunc;
-use crate::nn::{NnConfig, NueralNet};
+use crate::mutation::Mutator;
+use crate::nn::NueralNet;
 use crate::pruning::prune;
 use anyhow::Result;
 use rand::rngs::SmallRng;
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use vmmc::io::{write_geometry_png, write_protocols_png, write_stats};
 use vmmc::protocol::ProtocolIter;
 use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_config, InputParams};
-use MutationFunc::*;
+use Mutator::*;
 
 pub fn run_fresh_vmmc(
     ip: &InputParams,
@@ -28,23 +28,23 @@ pub fn run_fresh_vmmc(
 #[derive(Clone)]
 pub struct EvoState {
     pub ip: InputParams,
-    pub mutation_func: MutationFunc,
+    pub mutator: Mutator,
 }
 
 impl EvoState {
-    pub fn new(ip: InputParams, mutation_func: MutationFunc) -> Self {
+    pub fn new(ip: InputParams, mutator: Mutator) -> Self {
         Self {
             ip: ip.clone(),
-            mutation_func: mutation_func.clone(),
+            mutator: mutator.clone(),
         }
     }
 
     pub fn mutate(&mut self, rng: &mut SmallRng) -> Self {
-        self.mutation_func.mutate(rng);
-        let f = self.mutation_func.clone();
+        self.mutator.mutate(rng);
+        let f = self.mutator.clone();
         Self {
             ip: self.ip.clone(),
-            mutation_func: f,
+            mutator: f,
         }
     }
 }
@@ -53,10 +53,11 @@ impl EvoState {
 pub struct EvoVmmc {
     // TODO: change this to u64
     pub seed: i64, // toml crashes when I try to store as u64?
+    // pub initial_state: EvoState,
     pub initial_ip: InputParams,
+    pub initial_mutator: Mutator,
 
     pub fitness_func: FitnessFunc,
-    pub initial_mutation_func: MutationFunc,
 
     pub num_generations: usize,
     pub survivors_per_generation: usize,
@@ -85,7 +86,7 @@ impl EvoVmmc {
     }
 
     pub fn initial_evo_state(&self) -> EvoState {
-        EvoState::new(self.initial_ip.clone(), self.initial_mutation_func.clone())
+        EvoState::new(self.initial_ip.clone(), self.initial_mutator.clone())
     }
 
     pub fn initial_evo_states(&self) -> Vec<EvoState> {
@@ -94,7 +95,7 @@ impl EvoVmmc {
 
     // Executes a generation
     fn step_generation(&mut self, states: &[EvoState], rng: &mut SmallRng) -> Vec<Vmmc> {
-        use MutationFunc::*;
+        use Mutator::*;
         let seeds: Vec<u64> = (0..states.len()).map(|_| rng.gen()).collect();
         states
             .par_iter()
@@ -102,11 +103,12 @@ impl EvoVmmc {
             .map(|(idx, s)| {
                 let thread_seed = seeds[idx];
                 let mut thread_rng = SmallRng::seed_from_u64(thread_seed);
-                match &s.mutation_func {
-                    UniformRandomCoefficients(protocol, _, _, _) => {
-                        run_fresh_vmmc(&s.ip, protocol.megastep_iter(), &mut thread_rng)
+                match &s.mutator {
+                    TimeParticleNet(nn_config, protocol) => {
+                        let nn = NueralNet::from_config(nn_config);
+                        run_fresh_vmmc(&s.ip, nn.current_protocol(protocol), &mut thread_rng)
                     }
-                    LearningToGrowClassic(nn_config, protocol) => {
+                    TimeNet(nn_config, protocol) => {
                         let nn = NueralNet::from_config(nn_config);
                         run_fresh_vmmc(&s.ip, nn.current_protocol(protocol), &mut thread_rng)
                     }
@@ -131,17 +133,17 @@ impl EvoVmmc {
                 let out_path = std::path::Path::new(&p_str);
                 create_dir_all(out_path).unwrap();
                 let ip = &evo_states[idx].ip;
-                let mutation_func = &evo_states[idx].mutation_func;
+                let mutator = &evo_states[idx].mutator;
 
                 let toml = toml::to_string(&ip).unwrap();
                 std::fs::write(format!("{p_str}/config.toml"), toml).expect("Unable to write file");
                 write_geometry_png(child, &format!("{p_str}/geometry.png"));
-                match mutation_func {
-                    UniformRandomCoefficients(protocol, _, _, _) => write_protocols_png(
-                        protocol.megastep_iter(),
+                match mutator {
+                    TimeParticleNet(nn_config, protocol) => write_protocols_png(
+                        NueralNet::from_config(nn_config).current_protocol(protocol),
                         &format!("{p_str}/protocols.png"),
                     ),
-                    LearningToGrowClassic(nn_config, protocol) => write_protocols_png(
+                    TimeNet(nn_config, protocol) => write_protocols_png(
                         NueralNet::from_config(nn_config).current_protocol(protocol),
                         &format!("{p_str}/protocols.png"),
                     ),

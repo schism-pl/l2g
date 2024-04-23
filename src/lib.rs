@@ -1,6 +1,6 @@
 use evo_vmmc::EvoVmmc;
 use fitness::FitnessFunc;
-use mutation::MutationFunc;
+use mutation::Mutator;
 use nn::NnConfig;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use vmmc::InputParams;
@@ -25,10 +25,13 @@ impl Default for EvoVmmc {
 
         let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
 
+        // let initial_state = EvoState::new();
+
         Self {
             initial_ip,
+            // initial_state,
             fitness_func: FitnessFunc::PolygonSum,
-            initial_mutation_func: MutationFunc::LearningToGrowClassic(nn_config, protocol),
+            initial_mutator: Mutator::TimeNet(nn_config, protocol),
             seed,
             num_generations,
             children_per_survivor,
