@@ -12,7 +12,7 @@ fn main() -> anyhow::Result<()> {
 
     for idx in 0..50 {
         println!("Mutation {idx}");
-        let nn_config = NnConfig::new(1337, 1000, 0.1);
+        let nn_config = NnConfig::new(1337, 0, 1000, 0.1);
         let mut nn = NueralNet::from_config(&nn_config);
         let base_protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 1000);
         let curr_proto = nn.current_protocol(&base_protocol);

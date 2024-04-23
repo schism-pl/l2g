@@ -53,14 +53,14 @@ impl EvoState {
 pub struct EvoVmmc {
     // TODO: change this to u64
     pub seed: i64, // toml crashes when I try to store as u64?
-    initial_ip: InputParams,
+    pub initial_ip: InputParams,
 
     pub fitness_func: FitnessFunc,
     pub initial_mutation_func: MutationFunc,
 
-    num_generations: usize,
-    survivors_per_generation: usize,
-    children_per_survivor: usize,
+    pub num_generations: usize,
+    pub survivors_per_generation: usize,
+    pub children_per_survivor: usize,
 }
 
 impl EvoVmmc {
@@ -106,7 +106,8 @@ impl EvoVmmc {
                     UniformRandomCoefficients(protocol, _, _, _) => {
                         run_fresh_vmmc(&s.ip, protocol.megastep_iter(), &mut thread_rng)
                     }
-                    LearningToGrowClassic(nn, protocol) => {
+                    LearningToGrowClassic(nn_config, protocol) => {
+                        let nn = NueralNet::from_config(nn_config);
                         run_fresh_vmmc(&s.ip, nn.current_protocol(protocol), &mut thread_rng)
                     }
                 }
@@ -132,7 +133,6 @@ impl EvoVmmc {
                 let ip = &evo_states[idx].ip;
                 let mutation_func = &evo_states[idx].mutation_func;
 
-                // TODO: this isnt actually what we need, we need the mutation_func
                 let toml = toml::to_string(&ip).unwrap();
                 std::fs::write(format!("{p_str}/config.toml"), toml).expect("Unable to write file");
                 write_geometry_png(child, &format!("{p_str}/geometry.png"));
@@ -141,8 +141,8 @@ impl EvoVmmc {
                         protocol.megastep_iter(),
                         &format!("{p_str}/protocols.png"),
                     ),
-                    LearningToGrowClassic(nn, protocol) => write_protocols_png(
-                        nn.current_protocol(protocol),
+                    LearningToGrowClassic(nn_config, protocol) => write_protocols_png(
+                        NueralNet::from_config(nn_config).current_protocol(protocol),
                         &format!("{p_str}/protocols.png"),
                     ),
                 };
@@ -180,34 +180,5 @@ impl EvoVmmc {
             }
         }
         children
-    }
-}
-
-impl Default for EvoVmmc {
-    fn default() -> Self {
-        let initial_ip = InputParams::default();
-        let seed = SmallRng::from_entropy().gen::<i64>();
-        let nn_seed = SmallRng::from_entropy().gen::<u64>();
-
-        let num_generations = 3;
-        let children_per_survivor = 3;
-        let survivors_per_generation = 1;
-
-        let protocol = initial_ip.protocol.clone();
-
-        let nn_config = NnConfig::new(nn_seed, 1000, 0.1);
-
-        Self {
-            initial_ip,
-            fitness_func: FitnessFunc::PolygonSum,
-            initial_mutation_func: MutationFunc::LearningToGrowClassic(
-                NueralNet::from_config(&nn_config),
-                protocol,
-            ),
-            seed,
-            num_generations,
-            children_per_survivor,
-            survivors_per_generation,
-        }
     }
 }

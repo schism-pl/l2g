@@ -5,19 +5,28 @@ use serde::{Deserialize, Serialize};
 use vmmc::protocol::{ProtocolStep, SynthesisProtocol};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
+// Uniquely IDs a nueral net
+// NN can be reconstructed by building nn from original set and
+// mutating it by `child_id` times
 pub struct NnConfig {
-    seed: u64,
+    orig_seed: i64,
+    child_id: u64,
     num_layers: usize,
     mutation_factor: f64,
 }
 
 impl NnConfig {
-    pub fn new(seed: u64, num_layers: usize, mutation_factor: f64) -> Self {
+    pub fn new(orig_seed: i64, child_id: u64, num_layers: usize, mutation_factor: f64) -> Self {
         Self {
-            seed,
+            orig_seed,
+            child_id,
             num_layers,
             mutation_factor,
         }
+    }
+
+    pub fn increment_child_id(&mut self) {
+        self.child_id += 1
     }
 }
 
@@ -70,7 +79,7 @@ impl NueralNet {
     }
 
     pub fn from_config(config: &NnConfig) -> Self {
-        let mut rng = SmallRng::seed_from_u64(config.seed);
+        let mut rng = SmallRng::seed_from_u64(config.orig_seed as u64);
         let normal = Normal::new(0.0, 1.0).unwrap();
 
         let mut layers = Vec::new();
@@ -84,10 +93,16 @@ impl NueralNet {
             layers.push(layer);
         }
 
-        NueralNet {
+        let mut nn = NueralNet {
             layers,
             mutation_factor: config.mutation_factor,
+        };
+
+        for _ in 0..config.child_id {
+            nn.mutate();
         }
+
+        nn
     }
 
     // t is in [0; 1.0]. Represents current time / total time of simulation
