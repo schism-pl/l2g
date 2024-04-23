@@ -1,4 +1,3 @@
-use rand::rngs::SmallRng;
 use serde::{Deserialize, Serialize};
 use vmmc::protocol::SynthesisProtocol;
 
@@ -12,7 +11,7 @@ pub enum Mutator {
 
 // TODO: current_protocol?
 impl Mutator {
-    pub fn mutate(&mut self, rng: &mut SmallRng) {
+    pub fn mutate(&mut self) {
         use Mutator::*;
         match self {
             TimeParticleNet(nn, ..) => {

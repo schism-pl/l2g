@@ -31,7 +31,7 @@ impl NnConfig {
 }
 
 // architecture = 1 input, 1000 hidden layers of 1 node each, and 2 outputs (mu and epsilon)
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Debug)]
 pub struct HiddenLayer {
     input_weight: f64,
     epsilon_weight: f64,
@@ -53,30 +53,30 @@ impl HiddenLayer {
         (t * self.input_weight + self.bias).tanh()
     }
 
-    pub fn mutate(&mut self, mag: f64) {
-        let mut rng = rand::thread_rng();
+    pub fn mutate(&mut self, mag: f64, rng: &mut SmallRng) {
         let normal = Normal::new(0.0, mag).unwrap();
 
-        self.input_weight += normal.sample(&mut rng);
-        self.epsilon_weight += normal.sample(&mut rng);
-        self.mu_weight += normal.sample(&mut rng);
-        self.bias += normal.sample(&mut rng);
+        self.input_weight += normal.sample(rng);
+        self.epsilon_weight += normal.sample(rng);
+        self.mu_weight += normal.sample(rng);
+        self.bias += normal.sample(rng);
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Debug)]
 pub struct NueralNet {
     layers: Vec<HiddenLayer>,
     mutation_factor: f64,
+    rng: SmallRng,
 }
 
 impl NueralNet {
-    pub fn new(layers: Vec<HiddenLayer>, mutation_factor: f64) -> Self {
-        NueralNet {
-            layers,
-            mutation_factor,
-        }
-    }
+    // pub fn new(layers: Vec<HiddenLayer>, mutation_factor: f64) -> Self {
+    //     NueralNet {
+    //         layers,
+    //         mutation_factor,
+    //     }
+    // }
 
     pub fn from_config(config: &NnConfig) -> Self {
         let mut rng = SmallRng::seed_from_u64(config.orig_seed as u64);
@@ -96,6 +96,7 @@ impl NueralNet {
         let mut nn = NueralNet {
             layers,
             mutation_factor: config.mutation_factor,
+            rng,
         };
 
         for _ in 0..config.child_id {
@@ -126,7 +127,7 @@ impl NueralNet {
     pub fn mutate(&mut self) {
         self.layers
             .iter_mut()
-            .for_each(|l| l.mutate(self.mutation_factor))
+            .for_each(|l| l.mutate(self.mutation_factor, &mut self.rng))
     }
 
     pub fn current_protocol<'a>(&'a self, protocol: &'a SynthesisProtocol) -> NnMegastepIter<'a> {

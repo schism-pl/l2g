@@ -39,8 +39,8 @@ impl EvoState {
         }
     }
 
-    pub fn mutate(&mut self, rng: &mut SmallRng) -> Self {
-        self.mutator.mutate(rng);
+    pub fn mutate(&mut self) -> Self {
+        self.mutator.mutate();
         let f = self.mutator.clone();
         Self {
             ip: self.ip.clone(),
@@ -160,7 +160,7 @@ impl EvoVmmc {
             );
             // 2.) Use Fitness function to trim down to the survivors
             println!("Pruning survivors");
-            let survivor_states = prune(
+            let survivors = prune(
                 &evo_states,
                 children,
                 self.survivors_per_generation(),
@@ -168,16 +168,16 @@ impl EvoVmmc {
             );
             // 3.) Use Mutation function to get back to normal number of sims
             println!("Generating children");
-            evo_states = self.spawn_children(rng, survivor_states);
+            evo_states = self.spawn_children(survivors);
         }
     }
 
     // generate children from survivors of previously generations
-    pub fn spawn_children(&self, rng: &mut SmallRng, survivors: Vec<EvoState>) -> Vec<EvoState> {
+    pub fn spawn_children(&self, survivors: Vec<EvoState>) -> Vec<EvoState> {
         let mut children = Vec::new();
         for mut s in survivors.into_iter() {
             for _ in 0..self.children_per_survivor {
-                let child_state = s.mutate(rng);
+                let child_state = s.mutate();
                 children.push(child_state);
             }
         }
