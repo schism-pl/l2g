@@ -4,20 +4,19 @@ use vmmc::protocol::SynthesisProtocol;
 use crate::nn::NnConfig;
 
 #[derive(Clone, Serialize, Deserialize)]
-pub enum Mutator {
-    TimeParticleNet(NnConfig, SynthesisProtocol), // terms, order, percentage of range that any one coefficient can contribute
-    TimeNet(NnConfig, SynthesisProtocol),         // argument 2 = # of steps for each protocol
+pub enum Dna {
+    TimeParticleNet(NnConfig, SynthesisProtocol),
+    TimeNet(NnConfig, SynthesisProtocol),
 }
 
 // TODO: current_protocol?
-impl Mutator {
+impl Dna {
     pub fn mutate(&mut self) {
-        use Mutator::*;
         match self {
-            TimeParticleNet(nn, ..) => {
+            Self::TimeParticleNet(nn, ..) => {
                 nn.increment_child_id();
             }
-            TimeNet(nn, ..) => {
+            Self::TimeNet(nn, ..) => {
                 nn.increment_child_id();
             }
         }

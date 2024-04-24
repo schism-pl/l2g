@@ -1,4 +1,4 @@
-use crate::{evo_vmmc::EvoState, fitness::FitnessFunc};
+use crate::{dna::Dna, fitness::FitnessFunc};
 use vmmc::vmmc::Vmmc;
 
 fn get_index_of_least_fit(fitness: &FitnessFunc, values: &[Vmmc]) -> usize {
@@ -16,20 +16,20 @@ fn get_index_of_least_fit(fitness: &FitnessFunc, values: &[Vmmc]) -> usize {
 // Note: this function is implemented assuming that computing fitness is cheap
 // pretty easy to optimize if that isn't the case
 pub fn prune(
-    states: &[EvoState],
+    candidates: &[Dna],
     vmmcs: Vec<Vmmc>,
     prune_to: usize,
     fitness: &FitnessFunc,
-) -> Vec<EvoState> {
+) -> Vec<Dna> {
     let mut survivors = Vec::new();
     let mut survivor_states = Vec::new();
 
     for (idx, vmmc) in vmmcs.into_iter().enumerate() {
-        let s = states[idx].clone();
+        let c = candidates[idx].clone();
         // the first n children get to start as survivors
         if idx < prune_to {
             survivors.push(vmmc);
-            survivor_states.push(s);
+            survivor_states.push(c);
             continue;
         }
         // attempt to replace one of the survivors
@@ -37,7 +37,7 @@ pub fn prune(
         let index = get_index_of_least_fit(fitness, &survivors);
         if fit > fitness.eval(&survivors[index]) {
             survivors[index] = vmmc;
-            survivor_states[index] = s;
+            survivor_states[index] = c;
         }
     }
     survivor_states

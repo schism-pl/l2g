@@ -1,37 +1,34 @@
-use evo_vmmc::EvoVmmc;
+use dna::Dna;
+use engine::EvoEngine;
 use fitness::FitnessFunc;
-use mutation::Mutator;
 use nn::NnConfig;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
-use vmmc::InputParams;
+use vmmc::protocol::SynthesisProtocol;
 
-pub mod evo_vmmc;
+pub mod dna;
+pub mod engine;
 pub mod fitness;
-pub mod mutation;
 pub mod nn;
 pub mod pruning;
 
-impl Default for EvoVmmc {
+impl Default for EvoEngine {
     fn default() -> Self {
-        let initial_ip = InputParams::default();
-        let seed = SmallRng::from_entropy().gen::<i64>();
-        let nn_seed = SmallRng::from_entropy().gen::<i64>();
+        let sim_params = Default::default();
+        let seed = SmallRng::from_entropy().gen::<u32>();
+        let nn_seed = SmallRng::from_entropy().gen::<u32>();
 
         let num_generations = 3;
         let children_per_survivor = 3;
         let survivors_per_generation = 1;
 
-        let protocol = initial_ip.protocol.clone();
+        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 10);
 
         let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
 
-        // let initial_state = EvoState::new();
-
         Self {
-            initial_ip,
-            // initial_state,
+            sim_params,
             fitness_func: FitnessFunc::PolygonSum,
-            initial_mutator: Mutator::TimeNet(nn_config, protocol),
+            init_dna: Dna::TimeNet(nn_config, protocol),
             seed,
             num_generations,
             children_per_survivor,

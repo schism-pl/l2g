@@ -9,14 +9,14 @@ use vmmc::protocol::{ProtocolStep, SynthesisProtocol};
 // NN can be reconstructed by building nn from original set and
 // mutating it by `child_id` times
 pub struct NnConfig {
-    orig_seed: i64,
-    child_id: u64,
+    orig_seed: u32,
+    child_id: u32,
     num_layers: usize,
     mutation_factor: f64,
 }
 
 impl NnConfig {
-    pub fn new(orig_seed: i64, child_id: u64, num_layers: usize, mutation_factor: f64) -> Self {
+    pub fn new(orig_seed: u32, child_id: u32, num_layers: usize, mutation_factor: f64) -> Self {
         Self {
             orig_seed,
             child_id,
