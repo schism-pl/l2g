@@ -4,27 +4,15 @@ use crate::dna::Dna;
 use crate::fitness::FitnessFunc;
 use crate::nn::NueralNet;
 use crate::pruning::prune;
-use anyhow::Result;
+use crate::run_fresh_vmmc;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use vmmc::io::{write_geometry_png, write_protocols_png, write_stats};
-use vmmc::protocol::ProtocolIter;
+use vmmc::vmmc::Vmmc;
 use vmmc::SimParams;
-use vmmc::{run_vmmc, vmmc::Vmmc, vmmc_from_simparams};
 use Dna::*;
-
-pub fn run_fresh_vmmc(
-    sim_params: &SimParams,
-    initial_interaction_energy: f64,
-    protocol_iter: impl ProtocolIter,
-    rng: &mut SmallRng,
-) -> Vmmc {
-    let mut vmmc = vmmc_from_simparams(sim_params, initial_interaction_energy, rng);
-    let _: Result<()> = run_vmmc(&mut vmmc, protocol_iter, vmmc::no_callback(), rng);
-    vmmc
-}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct EvoEngine {
@@ -83,7 +71,8 @@ impl EvoEngine {
         match dna {
             TimeParticleNet(nn_config, protocol) | TimeNet(nn_config, protocol) => {
                 let nn = NueralNet::from_config(nn_config);
-                let initial_interaction_energy = protocol.initial_interaction_energy();
+                let initial_interaction_energy =
+                    protocol.initial_interaction_energy() + nn.eval(0.0).0;
                 let protocol_iter = nn.current_protocol(protocol);
                 run_fresh_vmmc(
                     self.sim_params(),
@@ -124,8 +113,6 @@ impl EvoEngine {
                 let p_str = format!("./out/{idx}/{child_idx}");
                 let out_path = std::path::Path::new(&p_str);
                 create_dir_all(out_path).unwrap();
-                // let toml = toml::to_string(&ip).unwrap();
-                // std::fs::write(format!("{p_str}/config.toml"), toml).expect("Unable to write file");
                 write_geometry_png(child, &format!("{p_str}/geometry.png"));
                 match &candidates[idx] {
                     TimeParticleNet(nn_config, protocol) | TimeNet(nn_config, protocol) => {

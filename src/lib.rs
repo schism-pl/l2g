@@ -1,9 +1,15 @@
+use anyhow::Result;
 use dna::Dna;
 use engine::EvoEngine;
 use fitness::FitnessFunc;
 use nn::NnConfig;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
-use vmmc::protocol::SynthesisProtocol;
+use vmmc::{
+    protocol::{ProtocolIter, SynthesisProtocol},
+    run_vmmc,
+    vmmc::Vmmc,
+    vmmc_from_simparams, SimParams,
+};
 
 pub mod dna;
 pub mod engine;
@@ -21,7 +27,7 @@ impl Default for EvoEngine {
         let children_per_survivor = 3;
         let survivors_per_generation = 1;
 
-        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 10);
+        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 100);
 
         let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
 
@@ -35,4 +41,15 @@ impl Default for EvoEngine {
             survivors_per_generation,
         }
     }
+}
+
+pub fn run_fresh_vmmc(
+    sim_params: &SimParams,
+    initial_interaction_energy: f64,
+    protocol_iter: impl ProtocolIter,
+    rng: &mut SmallRng,
+) -> Vmmc {
+    let mut vmmc = vmmc_from_simparams(sim_params, initial_interaction_energy, rng);
+    let _: Result<()> = run_vmmc(&mut vmmc, protocol_iter, vmmc::no_callback(), rng);
+    vmmc
 }
