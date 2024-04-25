@@ -39,6 +39,8 @@ impl Default for EvoEngine {
             num_generations,
             children_per_survivor,
             survivors_per_generation,
+            child_ctr: 0,
+            history: Vec::new(),
         }
     }
 }

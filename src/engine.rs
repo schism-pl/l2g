@@ -25,6 +25,14 @@ pub struct EvoEngine {
     pub num_generations: usize,
     pub survivors_per_generation: usize,
     pub children_per_survivor: usize,
+
+    // runtime state
+    #[serde(default)]
+    #[serde(skip_serializing)]
+    pub child_ctr: u32,
+    #[serde(default)]
+    #[serde(skip_serializing)]
+    pub history: Vec<(u32, u32)>, // edge-list of parent-child relationships
 }
 
 impl EvoEngine {
@@ -57,14 +65,17 @@ impl EvoEngine {
         )
     }
 
-    pub fn initial_candidates(&self) -> Vec<Dna> {
-        let mut r = Vec::new();
-        let mut progenitor = self.init_dna.clone();
-        for _ in 0..self.generation_size() {
-            r.push(progenitor.clone());
-            progenitor.mutate();
+    fn mutate(&mut self, dna: &mut Dna) {
+        match dna {
+            Dna::TimeParticleNet(nn, ..) | Dna::TimeNet(nn, ..) => {
+                nn.set_child_id(self.child_ctr);
+            }
         }
-        r
+        self.child_ctr += 1;
+    }
+
+    pub fn initial_candidates(&mut self) -> Vec<Dna> {
+        self.spawn_children(vec![self.init_dna.clone()], self.generation_size())
     }
 
     fn step_one(&self, dna: &Dna, rng: &mut SmallRng) -> Vmmc {
@@ -99,20 +110,26 @@ impl EvoEngine {
     }
 
     pub fn step_all(&mut self, rng: &mut SmallRng) {
-        println!("Creating threadpool of {} workers", self.generation_size());
+        log::info!(
+            "Creating threadpool of {} workers\n",
+            self.generation_size()
+        );
 
         // Create initial generation
         let mut candidates = self.initial_candidates();
         for idx in 0..self.num_generations {
-            println!("Starting generation {:?}: ", idx);
-            let ids: Vec<String> = candidates.iter().map(|c| c.nn_config().id()).collect();
-            println!("Candidates: {:?}", ids);
+            log::info!("Starting generation {:?}: ", idx);
+            let ids: Vec<u32> = candidates
+                .iter()
+                .map(|c| c.nn_config().child_id())
+                .collect();
+            log::info!("Candidates: {:?}", ids);
 
             // 1.) Execute a generations worth of sims
             let children = self.step_generation(&candidates, rng);
             // Dump outputs
             for (child_idx, child) in children.iter().enumerate() {
-                let p_str = format!("./out/{idx}/{child_idx}");
+                let p_str = format!("./out/{:0>3}/{:0>3}", idx, child_idx);
                 let out_path = std::path::Path::new(&p_str);
                 create_dir_all(out_path).unwrap();
                 write_geometry_png(child, &format!("{p_str}/geometry.png"));
@@ -130,31 +147,36 @@ impl EvoEngine {
                 write_stats(child, &format!("{p_str}/stats.txt"))
             }
 
-            println!(
-                "Children executed: fitnesses = {:?}",
-                children
-                    .iter()
-                    .map(|c| self.fitness_func.eval(c))
-                    .collect::<Vec<f64>>()
+            let fitnesses: Vec<f64> = children.iter().map(|c| self.fitness_func.eval(c)).collect();
+            let avg_fitness = fitnesses.iter().sum::<f64>() / fitnesses.len() as f64;
+            log::info!(
+                "Children executed: fitnesses = {:?} avg = {}",
+                fitnesses,
+                avg_fitness
             );
             // 2.) Use Fitness function to trim down to the survivors
             let survivors = self.prune(&candidates, children);
-            let ids: Vec<String> = candidates.iter().map(|c| c.nn_config().id()).collect();
-            println!("Pruned survivors to: {:?}\n", ids);
+            let ids: Vec<u32> = survivors.iter().map(|c| c.nn_config().child_id()).collect();
+            log::info!("Pruned survivors to: {:?}\n", ids);
             // 3.) Use Mutation function to get back to normal number of sims
-            candidates = self.spawn_children(survivors);
+            candidates = self.spawn_children(survivors, self.children_per_survivor);
         }
     }
 
     // generate children from survivors of previously generations
-    pub fn spawn_children(&self, survivors: Vec<Dna>) -> Vec<Dna> {
+    pub fn spawn_children(&mut self, survivors: Vec<Dna>, num_children: usize) -> Vec<Dna> {
         let mut children = Vec::new();
         for mut s in survivors.into_iter() {
-            for _ in 0..self.children_per_survivor {
-                s.mutate();
+            for _ in 0..num_children {
+                // record parent-child relationship
+                self.history
+                    .push((s.nn_config().child_id(), self.child_ctr));
+                // create new child
+                self.mutate(&mut s);
                 children.push(s.clone());
             }
         }
+
         children
     }
 }

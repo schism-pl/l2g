@@ -9,16 +9,11 @@ pub enum Dna {
     TimeNet(NnConfig, SynthesisProtocol),
 }
 
-// TODO: current_protocol?
 impl Dna {
-    pub fn mutate(&mut self) {
+    pub fn type_str(&self) -> &str {
         match self {
-            Self::TimeParticleNet(nn, ..) => {
-                nn.increment_child_id();
-            }
-            Self::TimeNet(nn, ..) => {
-                nn.increment_child_id();
-            }
+            Self::TimeNet(..) => "Time Network",
+            Self::TimeParticleNet(..) => "Time + Particle Network",
         }
     }
 
