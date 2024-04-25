@@ -104,7 +104,9 @@ impl EvoEngine {
         // Create initial generation
         let mut candidates = self.initial_candidates();
         for idx in 0..self.num_generations {
-            println!("Starting generation {:?}", idx);
+            println!("Starting generation {:?}: ", idx);
+            let ids: Vec<String> = candidates.iter().map(|c| c.nn_config().id()).collect();
+            println!("Candidates: {:?}", ids);
 
             // 1.) Execute a generations worth of sims
             let children = self.step_generation(&candidates, rng);
@@ -116,6 +118,9 @@ impl EvoEngine {
                 write_geometry_png(child, &format!("{p_str}/geometry.png"));
                 match &candidates[idx] {
                     TimeParticleNet(nn_config, protocol) | TimeNet(nn_config, protocol) => {
+                        let toml = toml::to_string(nn_config).unwrap();
+                        std::fs::write(format!("{p_str}/dna.toml"), toml)
+                            .expect("Unable to write file");
                         write_protocols_png(
                             NueralNet::from_config(nn_config).current_protocol(protocol),
                             &format!("{p_str}/protocols.png"),
@@ -133,10 +138,10 @@ impl EvoEngine {
                     .collect::<Vec<f64>>()
             );
             // 2.) Use Fitness function to trim down to the survivors
-            println!("Pruning survivors");
             let survivors = self.prune(&candidates, children);
+            let ids: Vec<String> = candidates.iter().map(|c| c.nn_config().id()).collect();
+            println!("Pruned survivors to: {:?}\n", ids);
             // 3.) Use Mutation function to get back to normal number of sims
-            println!("Generating children");
             candidates = self.spawn_children(survivors);
         }
     }

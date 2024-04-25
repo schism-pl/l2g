@@ -21,4 +21,10 @@ impl Dna {
             }
         }
     }
+
+    pub fn nn_config(&self) -> &NnConfig {
+        match self {
+            Self::TimeNet(nn, ..) | Dna::TimeParticleNet(nn, ..) => nn,
+        }
+    }
 }

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use rand::{rngs::SmallRng, SeedableRng};
 /// Implement nueral net implementation from original paper
 use rand_distr::{Distribution, Normal};
@@ -11,12 +13,12 @@ use vmmc::protocol::{ProtocolStep, SynthesisProtocol};
 pub struct NnConfig {
     orig_seed: u32,
     child_id: u32,
-    num_layers: usize,
+    num_layers: u32,
     mutation_factor: f64,
 }
 
 impl NnConfig {
-    pub fn new(orig_seed: u32, child_id: u32, num_layers: usize, mutation_factor: f64) -> Self {
+    pub fn new(orig_seed: u32, child_id: u32, num_layers: u32, mutation_factor: f64) -> Self {
         Self {
             orig_seed,
             child_id,
@@ -28,7 +30,17 @@ impl NnConfig {
     pub fn increment_child_id(&mut self) {
         self.child_id += 1
     }
+
+    pub fn id(&self) -> String {
+        format!("{}/{}", self.orig_seed, self.child_id)
+    }
 }
+
+// impl fmt::Display for NnConfig {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         write!(f, "{}", self.id())
+//     }
+// }
 
 // architecture = 1 input, 1000 hidden layers of 1 node each, and 2 outputs (mu and epsilon)
 #[derive(Clone, Debug)]
