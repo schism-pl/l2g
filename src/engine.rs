@@ -1,4 +1,5 @@
 use std::fs::create_dir_all;
+use std::time::Instant;
 
 use crate::dna::Dna;
 use crate::fitness::FitnessFunc;
@@ -126,7 +127,11 @@ impl EvoEngine {
             log::info!("Candidates: {:?}", ids);
 
             // 1.) Execute a generations worth of sims
+            let start = Instant::now();
             let children = self.step_generation(&candidates, rng);
+            let generation_end = Instant::now();
+            log::info!("Generation execution time: {:?}", generation_end - start);
+
             // Dump outputs
             for (child_idx, child) in children.iter().enumerate() {
                 let p_str = format!("./out/{:0>3}/{:0>3}", idx, child_idx);
@@ -160,6 +165,9 @@ impl EvoEngine {
             log::info!("Pruned survivors to: {:?}\n", ids);
             // 3.) Use Mutation function to get back to normal number of sims
             candidates = self.spawn_children(survivors, self.children_per_survivor);
+            let end = Instant::now();
+            log::info!("Time to prep next generation: {:?}", end - generation_end);
+
         }
     }
 
