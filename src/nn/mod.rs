@@ -1,8 +1,10 @@
+pub mod dna;
+pub mod new_nn;
 use rand::{rngs::SmallRng, SeedableRng};
 /// Implement nueral net implementation from original paper
 use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
-use vmmc::protocol::{ProtocolStep, SynthesisProtocol};
+use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 // Uniquely IDs a nueral net
@@ -127,13 +129,13 @@ impl NueralNet {
             .for_each(|l| l.mutate(self.mutation_factor, &mut self.rng))
     }
 
-    pub fn current_protocol<'a>(&'a self, protocol: &'a SynthesisProtocol) -> NnMegastepIter<'a> {
+    pub fn current_protocol(self, protocol: &SynthesisProtocol) -> NnMegastepIter {
         NnMegastepIter::new(self, protocol)
     }
 }
 
 pub struct NnMegastepIter<'a> {
-    nn: &'a NueralNet,
+    nn: NueralNet,
     t: f64,
     protocol: &'a SynthesisProtocol,
     ep_accum: f64,
@@ -141,7 +143,7 @@ pub struct NnMegastepIter<'a> {
 }
 
 impl<'a> NnMegastepIter<'a> {
-    fn new(nn: &'a NueralNet, protocol: &'a SynthesisProtocol) -> Self {
+    fn new(nn: NueralNet, protocol: &'a SynthesisProtocol) -> Self {
         Self {
             nn,
             t: 0.0,
@@ -177,5 +179,18 @@ impl<'a> ExactSizeIterator for NnMegastepIter<'a> {
     // We can easily calculate the remaining number of iterations.
     fn len(&self) -> usize {
         self.protocol.num_megasteps() - (self.t * self.protocol.num_megasteps() as f64) as usize
+    }
+}
+
+impl<'a> Peekable for NnMegastepIter<'a> {
+    type Output = ProtocolStep;
+
+    fn peek(&self) -> Self::Output {
+        let (epsilon, mu) = self.nn.eval(self.t);
+        let orig_epsilon = self.protocol.interaction_energy(self.t as usize);
+        let orig_mu = self.protocol.chemical_potential(self.t as usize);
+        let chemical_potential = (orig_mu + mu + self.mu_accum).clamp(-20.0, 20.0);
+        let interaction_energy = (orig_epsilon + epsilon + self.ep_accum).clamp(0.0, 20.0);
+        ProtocolStep::new(chemical_potential, interaction_energy)
     }
 }

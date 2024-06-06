@@ -1,9 +1,8 @@
 use std::fs::create_dir_all;
 use std::time::Instant;
 
-use crate::dna::Dna;
 use crate::fitness::FitnessFunc;
-use crate::nn::NueralNet;
+use crate::nn::dna::Dna;
 use crate::pruning::prune;
 use crate::run_fresh_vmmc;
 use rand::rngs::SmallRng;
@@ -13,7 +12,6 @@ use serde::{Deserialize, Serialize};
 use vmmc::io::{write_geometry_png, write_protocols_png, write_stats};
 use vmmc::vmmc::Vmmc;
 use vmmc::SimParams;
-use Dna::*;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct EvoEngine {
@@ -68,7 +66,7 @@ impl EvoEngine {
 
     fn mutate(&mut self, dna: &mut Dna) {
         match dna {
-            Dna::TimeParticleNet(nn, ..) | Dna::TimeNet(nn, ..) => {
+            Dna::TimeParticleNet(nn, ..) | Dna::TimeNet(nn, ..) | Dna::Fll(nn, ..) => {
                 nn.set_child_id(self.child_ctr);
             }
         }
@@ -80,20 +78,8 @@ impl EvoEngine {
     }
 
     fn step_one(&self, dna: &Dna, rng: &mut SmallRng) -> Vmmc {
-        match dna {
-            TimeParticleNet(nn_config, protocol) | TimeNet(nn_config, protocol) => {
-                let nn = NueralNet::from_config(nn_config);
-                let initial_interaction_energy =
-                    protocol.initial_interaction_energy() + nn.eval(0.0).0;
-                let protocol_iter = nn.current_protocol(protocol);
-                run_fresh_vmmc(
-                    self.sim_params(),
-                    initial_interaction_energy,
-                    protocol_iter,
-                    rng,
-                )
-            }
-        }
+        let protocol_iter = dna.protocol_iter();
+        run_fresh_vmmc(self.sim_params(), protocol_iter, rng)
     }
 
     // Executes a generation
@@ -138,17 +124,11 @@ impl EvoEngine {
                 let out_path = std::path::Path::new(&p_str);
                 create_dir_all(out_path).unwrap();
                 write_geometry_png(child, &format!("{p_str}/geometry.png"));
-                match &candidates[idx] {
-                    TimeParticleNet(nn_config, protocol) | TimeNet(nn_config, protocol) => {
-                        let toml = toml::to_string(nn_config).unwrap();
-                        std::fs::write(format!("{p_str}/dna.toml"), toml)
-                            .expect("Unable to write file");
-                        write_protocols_png(
-                            NueralNet::from_config(nn_config).current_protocol(protocol),
-                            &format!("{p_str}/protocols.png"),
-                        )
-                    }
-                };
+                let nn_config = candidates[idx].nn_config();
+                let protocol_iter = candidates[idx].protocol_iter();
+                let toml = toml::to_string(nn_config).unwrap();
+                std::fs::write(format!("{p_str}/dna.toml"), toml).expect("Unable to write file");
+                write_protocols_png(protocol_iter, &format!("{p_str}/protocols.png"));
                 write_stats(child, &format!("{p_str}/stats.txt"))
             }
 
@@ -167,7 +147,6 @@ impl EvoEngine {
             candidates = self.spawn_children(survivors, self.children_per_survivor);
             let end = Instant::now();
             log::info!("Time to prep next generation: {:?}", end - generation_end);
-
         }
     }
 

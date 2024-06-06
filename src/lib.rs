@@ -1,7 +1,7 @@
 use anyhow::Result;
-use dna::Dna;
 use engine::EvoEngine;
 use fitness::FitnessFunc;
+use nn::dna::Dna;
 use nn::NnConfig;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use vmmc::{
@@ -11,7 +11,6 @@ use vmmc::{
     vmmc_from_simparams, SimParams,
 };
 
-pub mod dna;
 pub mod engine;
 pub mod fitness;
 pub mod nn;
@@ -47,10 +46,10 @@ impl Default for EvoEngine {
 
 pub fn run_fresh_vmmc(
     sim_params: &SimParams,
-    initial_interaction_energy: f64,
     protocol_iter: impl ProtocolIter,
     rng: &mut SmallRng,
 ) -> Vmmc {
+    let initial_interaction_energy = protocol_iter.peek().interaction_energy();
     let mut vmmc = vmmc_from_simparams(sim_params, initial_interaction_energy, rng);
     let _: Result<()> = run_vmmc(&mut vmmc, protocol_iter, vmmc::no_callback(), rng);
     vmmc

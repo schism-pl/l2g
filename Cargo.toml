@@ -22,6 +22,7 @@ log4rs = "1.3.0"
 rand = { version = "0.8.5", features = ["small_rng"] }
 rand_distr = "0.4.3"
 rayon = "1.10.0"
+runnt = "0.7.0"
 serde = { version = "1.0.193", features = ["derive"] }
 toml = "0.8.8"
 vmmc = { path = "crates/vmmc" }
