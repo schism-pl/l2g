@@ -35,7 +35,7 @@ impl FLLConfig {
     pub fn mutate(&mut self) {
         let mut weights = self.nn.get_weights();
         for w in &mut weights {
-            *w = (*w + fastrand::f32() * self.mutation_factor).clamp(-1.0, 1.0);
+            *w = (*w + (fastrand::f32() * 2.0 - 1.0) * self.mutation_factor).clamp(-1.0, 1.0);
         }
 
         self.nn.set_weights(&weights);
@@ -50,17 +50,16 @@ impl FLLConfig {
         let mut epsilon = proto.interaction_energy(0);
         let mut mu = proto.chemical_potential(0);
 
-        let step = ProtocolStep::new(mu, epsilon);
-        let mut steps = vec![step];
+        let mut steps = Vec::new();
 
         for phase in 0..self.num_phases {
             let epsilon_delta = epsilon_slopes[phase] as f64 / self.phase_length as f64;
             let mu_delta = mu_slopes[phase] as f64 / self.phase_length as f64;
             for _ in 0..self.phase_length {
-                epsilon += epsilon_delta;
-                mu += mu_delta;
                 let step = ProtocolStep::new(mu, epsilon);
                 steps.push(step);
+                epsilon += epsilon_delta;
+                mu += mu_delta;
             }
         }
 

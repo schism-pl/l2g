@@ -1,12 +1,11 @@
+pub mod fll;
 pub mod l2g_nn;
-pub mod new_nn;
 
 use crate::nn::l2g_nn::NnConfig;
-use new_nn::FLLConfig;
+use fll::FLLConfig;
 use serde::{Deserialize, Serialize};
 use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
 
-// TODO: make this struct private
 #[derive(Clone, Serialize, Deserialize)]
 enum DnaInner {
     TimeParticleNet(NnConfig, SynthesisProtocol),
@@ -56,6 +55,10 @@ impl Dna {
         Dna::new(0, DnaInner::TimeNet(nn_config, proto))
     }
 
+    pub fn fresh_fll(config: FLLConfig, proto: SynthesisProtocol) -> Self {
+        Dna::new(0, DnaInner::Fll(config, proto))
+    }
+
     pub fn mutate(&mut self, new_id: usize) {
         use DnaInner::*;
         match &mut self.inner {
@@ -64,6 +67,7 @@ impl Dna {
             }
             Fll(nn, ..) => nn.mutate(),
         }
+        self.id = new_id;
     }
 }
 

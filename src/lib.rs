@@ -1,8 +1,8 @@
 use anyhow::Result;
 use engine::EvoEngine;
 use fitness::FitnessFunc;
-use nn::l2g_nn::NnConfig;
 use nn::Dna;
+use nn::{fll::FLLConfig, l2g_nn::NnConfig};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use vmmc::{
     protocol::{ProtocolIter, SynthesisProtocol},
@@ -20,18 +20,19 @@ impl Default for EvoEngine {
     fn default() -> Self {
         let sim_params = Default::default();
         let seed = SmallRng::from_entropy().gen::<u32>();
-        let nn_seed = SmallRng::from_entropy().gen::<u32>();
+        // let nn_seed = SmallRng::from_entropy().gen::<u32>();
 
         let num_generations = 3;
         let children_per_survivor = 3;
         let survivors_per_generation = 1;
 
-        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 100);
+        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 4);
 
-        let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
+        // let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
+        let config = FLLConfig::new(2, 2, 0.5);
 
         // let init_dna = Dna::new(0, DnaInner::TimeNet(nn_config, protocol));
-        let init_dna = Dna::fresh_time_net(nn_config, protocol);
+        let init_dna = Dna::fresh_fll(config, protocol);
 
         Self {
             sim_params,
