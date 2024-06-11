@@ -1,3 +1,6 @@
 [submodule "crates/vmmc"]
 	path = crates/vmmc
 	url = git@github.com:schism-pl/vmmc.git
+[submodule "crates/runnt"]
+	path = crates/runnt
+	url = git@github.com:griccardos/runnt.git
