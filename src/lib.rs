@@ -1,8 +1,8 @@
 use anyhow::Result;
 use engine::EvoEngine;
 use fitness::FitnessFunc;
-use nn::dna::Dna;
-use nn::NnConfig;
+use nn::l2g_nn::NnConfig;
+use nn::Dna;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use vmmc::{
     protocol::{ProtocolIter, SynthesisProtocol},
@@ -30,10 +30,12 @@ impl Default for EvoEngine {
 
         let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
 
+        let init_dna = Dna::TimeNet(nn_config, protocol);
+
         Self {
             sim_params,
             fitness_func: FitnessFunc::PolygonSum,
-            init_dna: Dna::TimeNet(nn_config, protocol),
+            init_dna,
             seed,
             num_generations,
             children_per_survivor,

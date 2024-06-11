@@ -2,7 +2,7 @@ use std::fs::create_dir_all;
 use std::time::Instant;
 
 use crate::fitness::FitnessFunc;
-use crate::nn::dna::Dna;
+use crate::nn::Dna;
 use crate::pruning::prune;
 use crate::run_fresh_vmmc;
 use rand::rngs::SmallRng;

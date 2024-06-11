@@ -1,4 +1,4 @@
-use crate::{fitness::FitnessFunc, nn::dna::Dna};
+use crate::{fitness::FitnessFunc, nn::Dna};
 use vmmc::vmmc::Vmmc;
 
 fn get_index_of_least_fit(fitness: &FitnessFunc, values: &[Vmmc]) -> usize {
