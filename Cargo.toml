@@ -17,6 +17,7 @@ path = "src/bin/mutation_viz.rs"
 anyhow = "1.0.75" # better errors
 clap = { version = "4.4.6", features = ["derive"] } # commandline parsing
 equationx = "0.1.0"
+fastrand = "2.1.0"
 log = "0.4.20"
 log4rs = "1.3.0"
 rand = { version = "0.8.5", features = ["small_rng"] }

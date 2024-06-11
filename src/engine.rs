@@ -28,10 +28,10 @@ pub struct EvoEngine {
     // runtime state
     #[serde(default)]
     #[serde(skip_serializing)]
-    pub child_ctr: u32,
+    pub child_ctr: usize,
     #[serde(default)]
     #[serde(skip_serializing)]
-    pub history: Vec<(u32, u32)>, // edge-list of parent-child relationships
+    pub history: Vec<(usize, usize)>, // edge-list of parent-child relationships
 }
 
 impl EvoEngine {
@@ -65,12 +65,8 @@ impl EvoEngine {
     }
 
     fn mutate(&mut self, dna: &mut Dna) {
-        match dna {
-            Dna::TimeParticleNet(nn, ..) | Dna::TimeNet(nn, ..) => {
-                nn.set_child_id(self.child_ctr);
-            }
-            Dna::Fll(nn, ..) => unimplemented!(),
-        }
+        // use DnaInner::*;
+        dna.mutate(self.child_ctr);
         self.child_ctr += 1;
     }
 
@@ -107,10 +103,7 @@ impl EvoEngine {
         let mut candidates = self.initial_candidates();
         for idx in 0..self.num_generations {
             log::info!("Starting generation {:?}: ", idx);
-            let ids: Vec<u32> = candidates
-                .iter()
-                .map(|c| c.nn_config().child_id())
-                .collect();
+            let ids: Vec<usize> = candidates.iter().map(|c| c.id()).collect();
             log::info!("Candidates: {:?}", ids);
 
             // 1.) Execute a generations worth of sims
@@ -125,9 +118,10 @@ impl EvoEngine {
                 let out_path = std::path::Path::new(&p_str);
                 create_dir_all(out_path).unwrap();
                 write_geometry_png(child, &format!("{p_str}/geometry.png"));
-                let nn_config = candidates[idx].nn_config();
+                // let nn_config = candidates[idx].nn_config();
+                let dna = &candidates[idx];
                 let protocol_iter = candidates[idx].protocol_iter();
-                let toml = toml::to_string(nn_config).unwrap();
+                let toml = toml::to_string(dna).unwrap();
                 std::fs::write(format!("{p_str}/dna.toml"), toml).expect("Unable to write file");
                 write_protocols_png(protocol_iter, &format!("{p_str}/protocols.png"));
                 write_stats(child, &format!("{p_str}/stats.txt"))
@@ -142,7 +136,7 @@ impl EvoEngine {
             );
             // 2.) Use Fitness function to trim down to the survivors
             let survivors = self.prune(&candidates, children);
-            let ids: Vec<u32> = survivors.iter().map(|c| c.nn_config().child_id()).collect();
+            let ids: Vec<usize> = survivors.iter().map(|c| c.id()).collect();
             log::info!("Pruned survivors to: {:?}\n", ids);
             // 3.) Use Mutation function to get back to normal number of sims
             candidates = self.spawn_children(survivors, self.children_per_survivor);
@@ -157,8 +151,7 @@ impl EvoEngine {
         for mut s in survivors.into_iter() {
             for _ in 0..num_children {
                 // record parent-child relationship
-                self.history
-                    .push((s.nn_config().child_id(), self.child_ctr));
+                self.history.push((s.id(), self.child_ctr));
                 // create new child
                 self.mutate(&mut s);
                 children.push(s.clone());

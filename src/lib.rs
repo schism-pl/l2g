@@ -30,7 +30,8 @@ impl Default for EvoEngine {
 
         let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
 
-        let init_dna = Dna::TimeNet(nn_config, protocol);
+        // let init_dna = Dna::new(0, DnaInner::TimeNet(nn_config, protocol));
+        let init_dna = Dna::fresh_time_net(nn_config, protocol);
 
         Self {
             sim_params,

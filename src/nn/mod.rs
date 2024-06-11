@@ -6,41 +6,63 @@ use new_nn::FLLConfig;
 use serde::{Deserialize, Serialize};
 use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
 
-use l2g_nn::{NnMegastepIter, NueralNet};
-
+// TODO: make this struct private
 #[derive(Clone, Serialize, Deserialize)]
-pub enum Dna {
+enum DnaInner {
     TimeParticleNet(NnConfig, SynthesisProtocol),
     TimeNet(NnConfig, SynthesisProtocol),
     Fll(FLLConfig, SynthesisProtocol),
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Dna {
+    id: usize,
+    inner: DnaInner,
+}
+
 impl Dna {
-    pub fn type_str(&self) -> &str {
-        match self {
-            Self::TimeNet(..) => "Time Network",
-            Self::TimeParticleNet(..) => "Time + Particle Network",
-            Self::Fll(..) => "FLL (fixed-length linear)",
-        }
+    fn new(id: usize, inner: DnaInner) -> Self {
+        Self { id, inner }
     }
 
-    pub fn nn_config(&self) -> &NnConfig {
-        match self {
-            Self::TimeNet(nn, ..) | Dna::TimeParticleNet(nn, ..) => nn,
-            Dna::Fll(nn, proto) => unimplemented!(),
-        }
+    pub fn id(&self) -> usize {
+        self.id
     }
 
     pub fn protocol_iter(&self) -> StaticMegastepIter {
-        let proto_vec = match self {
-            Self::TimeNet(nn, proto) => nn.proto_vec(proto),
-            Self::TimeParticleNet(_nn, _proto) => unimplemented!(),
-            Self::Fll(nn, proto) => nn.proto_vec(proto),
+        use DnaInner::*;
+        let proto_vec = match &self.inner {
+            TimeNet(nn, proto) => nn.proto_vec(proto),
+            TimeParticleNet(_nn, _proto) => unimplemented!(),
+            Fll(nn, proto) => nn.proto_vec(proto),
         };
 
         StaticMegastepIter {
             inner: proto_vec,
             t: 0,
+        }
+    }
+
+    pub fn type_str(&self) -> &str {
+        use DnaInner::*;
+        match self.inner {
+            TimeNet(..) => "Time Network",
+            TimeParticleNet(..) => "Time + Particle Network",
+            Fll(..) => "FLL (fixed-length linear)",
+        }
+    }
+
+    pub fn fresh_time_net(nn_config: NnConfig, proto: SynthesisProtocol) -> Self {
+        Dna::new(0, DnaInner::TimeNet(nn_config, proto))
+    }
+
+    pub fn mutate(&mut self, new_id: usize) {
+        use DnaInner::*;
+        match &mut self.inner {
+            TimeParticleNet(nn, ..) | TimeNet(nn, ..) => {
+                nn.set_child_id(new_id as u32);
+            }
+            Fll(nn, ..) => nn.mutate(),
         }
     }
 }
@@ -70,7 +92,7 @@ impl ExactSizeIterator for StaticMegastepIter {
     }
 }
 
-impl<'a> Peekable for StaticMegastepIter {
+impl Peekable for StaticMegastepIter {
     type Output = ProtocolStep;
 
     fn peek(&self) -> Self::Output {
