@@ -5,30 +5,66 @@ use runnt::{activation::ActivationType, nn::NN, regularization::Regularization};
 use serde::{Deserialize, Serialize};
 use vmmc::protocol::{self, Peekable, ProtocolStep, SynthesisProtocol};
 
-// TODO: fixed at 10,10,10 architecture
+// TODO: fixed at self.num_phases,self.num_phases,self.num_phases*2 architecture
 // TODO: currently does not incorporate targeted protocol
 // will ony
 
-const NUM_PERIODS: usize = 10;
-const PERIOD_LENGTH: usize = 100;
+// const NUM_PHASES: usize = 10;
+// const PERIOD_LENGTH: usize = 100;
 // const Times: [f32; 10] = [0., 1., 2., 3., 4. ,5., 6.,7.,8.,9.];
 
 #[derive(Clone, Serialize, Deserialize)]
 // Uniquely IDs a nueral net
 // NN can be reconstructed by building nn from original set and
 // mutating it by `child_id` times
-pub struct FllConfig {
+pub struct FLLConfig {
     nn: runnt::nn::NN,
+    num_phases: usize,
+    phase_length: usize,
 }
 
-impl FllConfig {
-    pub fn new(orig_seed: u32, child_id: u32) -> Self {
-        let nn = runnt::nn::NN::new(&[10, 10, 10])
+impl FLLConfig {
+    pub fn new(num_phases: usize, phase_length: usize) -> Self {
+        let nn = runnt::nn::NN::new(&[num_phases, num_phases, num_phases * 2])
             .with_learning_rate(0.1)
             .with_hidden_type(ActivationType::Sigmoid)
             .with_output_type(ActivationType::Linear)
             .with_regularization(Regularization::None);
-        Self { nn }
+        Self {
+            nn,
+            num_phases,
+            phase_length,
+        }
+    }
+
+    // TODO: only uses protocol for initial info
+    pub fn proto_vec(&self, proto: &SynthesisProtocol) -> Vec<ProtocolStep> {
+        let times =
+            Vec::from_iter((0..self.num_phases).map(|phase| phase as f32 / self.num_phases as f32));
+        let mut epsilon_slopes = self.nn.forward(&times);
+        let mu_slopes = epsilon_slopes.split_off(self.num_phases);
+
+        let mut epsilon = proto.interaction_energy(0);
+        let mut mu = proto.chemical_potential(0);
+
+        let step = ProtocolStep::new(mu, epsilon);
+        let mut steps = vec![step];
+
+        for phase in 0..self.num_phases {
+            let epsilon_delta = epsilon_slopes[phase] as f64 / self.phase_length as f64;
+            let mu_delta = mu_slopes[phase] as f64 / self.phase_length as f64;
+            for t in 0..self.phase_length {
+                epsilon = epsilon + epsilon_delta;
+                mu = mu + mu_delta;
+                let step = ProtocolStep::new(mu, epsilon);
+                steps.push(step);
+            }
+        }
+
+        assert_eq!(steps.len(), self.num_phases * self.phase_length);
+        steps
+        // let nn = NueralNet::from_config(self);
+        // nn.current_protocol(proto).collect()
     }
 }
 

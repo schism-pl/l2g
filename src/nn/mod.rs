@@ -2,6 +2,7 @@ pub mod l2g_nn;
 pub mod new_nn;
 
 use crate::nn::l2g_nn::NnConfig;
+use new_nn::FLLConfig;
 use serde::{Deserialize, Serialize};
 use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
 
@@ -11,7 +12,7 @@ use l2g_nn::{NnMegastepIter, NueralNet};
 pub enum Dna {
     TimeParticleNet(NnConfig, SynthesisProtocol),
     TimeNet(NnConfig, SynthesisProtocol),
-    Fll(runnt::nn::NN, SynthesisProtocol),
+    Fll(FLLConfig, SynthesisProtocol),
 }
 
 impl Dna {
@@ -30,12 +31,11 @@ impl Dna {
         }
     }
 
-    // TODO: expand
     pub fn protocol_iter(&self) -> StaticMegastepIter {
         let proto_vec = match self {
             Self::TimeNet(nn, proto) => nn.proto_vec(proto),
-            Self::TimeParticleNet(nn, proto) => unimplemented!(),
-            Self::Fll(nn, proto) => unimplemented!(),
+            Self::TimeParticleNet(_nn, _proto) => unimplemented!(),
+            Self::Fll(nn, proto) => nn.proto_vec(proto),
         };
 
         StaticMegastepIter {
