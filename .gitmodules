@@ -3,4 +3,4 @@
 	url = git@github.com:schism-pl/vmmc.git
 [submodule "crates/runnt"]
 	path = crates/runnt
-	url = git@github.com:griccardos/runnt.git
+	url = git@github.com:enjhnsn2/runnt.git
