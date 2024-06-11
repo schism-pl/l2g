@@ -32,6 +32,11 @@ impl NnConfig {
     pub fn child_id(&self) -> u32 {
         self.child_id
     }
+
+    pub fn proto_vec(&self, proto: &SynthesisProtocol) -> Vec<ProtocolStep> {
+        let nn = NueralNet::from_config(self);
+        nn.current_protocol(proto).collect()
+    }
 }
 
 // architecture = 1 input, 1000 hidden layers of 1 node each, and 2 outputs (mu and epsilon)

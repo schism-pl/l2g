@@ -66,9 +66,10 @@ impl EvoEngine {
 
     fn mutate(&mut self, dna: &mut Dna) {
         match dna {
-            Dna::TimeParticleNet(nn, ..) | Dna::TimeNet(nn, ..) | Dna::Fll(nn, ..) => {
+            Dna::TimeParticleNet(nn, ..) | Dna::TimeNet(nn, ..) => {
                 nn.set_child_id(self.child_ctr);
             }
+            Dna::Fll(nn, ..) => unimplemented!(),
         }
         self.child_ctr += 1;
     }
