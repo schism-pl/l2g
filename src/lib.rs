@@ -26,10 +26,10 @@ impl Default for EvoEngine {
         let children_per_survivor = 3;
         let survivors_per_generation = 1;
 
-        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 4);
+        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 10);
 
         // let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
-        let config = FLLConfig::new(2, 2, 0.5);
+        let config = FLLConfig::new(2, 5, 0.5);
 
         // let init_dna = Dna::new(0, DnaInner::TimeNet(nn_config, protocol));
         let init_dna = Dna::fresh_fll(config, protocol);

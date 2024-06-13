@@ -1,16 +1,18 @@
 pub mod fll;
+pub mod fll_fixed_particle;
 pub mod l2g_nn;
 
 use crate::nn::l2g_nn::NnConfig;
 use fll::FLLConfig;
+use fll_fixed_particle::FLLFixedParticleConfig;
 use serde::{Deserialize, Serialize};
 use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
 
 #[derive(Clone, Serialize, Deserialize)]
 enum DnaInner {
-    TimeParticleNet(NnConfig, SynthesisProtocol),
     TimeNet(NnConfig, SynthesisProtocol),
     Fll(FLLConfig, SynthesisProtocol),
+    FllFixedParticle(FLLFixedParticleConfig, SynthesisProtocol),
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -32,8 +34,8 @@ impl Dna {
         use DnaInner::*;
         let proto_vec = match &self.inner {
             TimeNet(nn, proto) => nn.proto_vec(proto),
-            TimeParticleNet(_nn, _proto) => unimplemented!(),
             Fll(nn, proto) => nn.proto_vec(proto),
+            FllFixedParticle(nn, proto) => nn.proto_vec(proto),
         };
 
         StaticMegastepIter {
@@ -46,8 +48,8 @@ impl Dna {
         use DnaInner::*;
         match self.inner {
             TimeNet(..) => "Time Network",
-            TimeParticleNet(..) => "Time + Particle Network",
             Fll(..) => "FLL (fixed-length linear)",
+            FllFixedParticle(..) => "FLL (fixed-length linear) with fixed particle count",
         }
     }
 
@@ -62,10 +64,11 @@ impl Dna {
     pub fn mutate(&mut self, new_id: usize) {
         use DnaInner::*;
         match &mut self.inner {
-            TimeParticleNet(nn, ..) | TimeNet(nn, ..) => {
+            TimeNet(nn, ..) => {
                 nn.set_child_id(new_id as u32);
             }
             Fll(nn, ..) => nn.mutate(),
+            FllFixedParticle(nn, ..) => nn.mutate(),
         }
         self.id = new_id;
     }
