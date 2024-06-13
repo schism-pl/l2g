@@ -1,38 +1,26 @@
 use crate::nn::Dna;
 
-fn get_index_of_least_fit(fitnesses: &[f64]) -> usize {
-    let mut lowest = f64::MIN;
+fn get_index_of_least_fit(genepool: &[(Dna, f64)]) -> (usize, f64) {
+    let mut lowest = genepool[0].1;
     let mut index = 0;
-    for (idx, v) in fitnesses.iter().enumerate() {
+    for (idx, (_, v)) in genepool.iter().enumerate() {
         if v < &lowest {
             lowest = *v;
             index = idx;
         }
     }
-    index
+    (index, lowest)
 }
 
 // Note: this function is implemented assuming that computing fitness is cheap
 // pretty easy to optimize if that isn't the case
-pub fn prune(candidates: &[Dna], fitnesses: Vec<f64>, prune_to: usize) -> Vec<Dna> {
-    let mut survivor_fitnesses = Vec::new();
-    let mut survivors = Vec::new();
-
+pub fn prune(genepool: &mut [(Dna, f64)], candidates: &[Dna], fitnesses: Vec<f64>) {
     for (idx, dna) in candidates.iter().enumerate() {
         let fitness = fitnesses[idx];
-        // the first n children get to start as survivors
-        if idx < prune_to {
-            survivor_fitnesses.push(fitness);
-            survivors.push(dna.clone());
-            continue;
-        }
-        // attempt to replace one of the survivors
-        // let fit = fitness.eval(&vmmc);
-        let index = get_index_of_least_fit(&survivor_fitnesses);
-        if fitness > fitnesses[index] {
-            survivor_fitnesses[index] = fitness;
-            survivors[index] = dna.clone();
+        let (index, lowest_fit) = get_index_of_least_fit(genepool);
+        // println!("Assessing: {:?} {fitness} vs {:?} {:?}", dna.id(), genepool[index].0.id(), lowest_fit);
+        if fitness > lowest_fit {
+            genepool[index] = (dna.clone(), fitness)
         }
     }
-    survivors
 }

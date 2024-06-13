@@ -54,13 +54,11 @@ impl EvoEngine {
         self.survivors_per_generation * self.children_per_survivor
     }
 
-    fn prune(&self, candidates: &[Dna], fitnesses: Vec<f64>) -> Vec<Dna> {
+    fn prune(&self, genepool: &mut [(Dna, f64)], candidates: &[Dna], fitnesses: Vec<f64>) {
         prune(
-            candidates,
-            fitnesses,
-            self.survivors_per_generation(),
+            genepool, candidates, fitnesses,
             // &self.fitness_func,
-        )
+        );
     }
 
     fn mutate(&mut self, dna: &mut Dna) {
@@ -70,7 +68,7 @@ impl EvoEngine {
     }
 
     pub fn initial_candidates(&mut self) -> Vec<Dna> {
-        self.spawn_children(vec![self.init_dna.clone()], self.generation_size())
+        self.spawn_children(&vec![(self.init_dna.clone(), 0.)], self.generation_size())
     }
 
     fn step_one(&self, dna: &Dna, rng: &mut SmallRng) -> Vmmc {
@@ -102,9 +100,9 @@ impl EvoEngine {
         fitnesses
     }
 
-    fn record_survivors(&self, survivors: &[Dna]) {
-        let ids: Vec<usize> = survivors.iter().map(|c| c.id()).collect();
-        log::info!("Pruned survivors to: {:?}\n", ids);
+    fn record_genepool(&self, genepool: &[(Dna, f64)]) {
+        let ids: Vec<(usize, f64)> = genepool.iter().map(|(c, fit)| (c.id(), *fit)).collect();
+        log::info!("Updated genepool: {:?}\n", ids);
     }
 
     pub fn step_all(&mut self, rng: &mut SmallRng) {
@@ -115,6 +113,11 @@ impl EvoEngine {
 
         // Create initial generation
         let mut candidates = self.initial_candidates();
+        let mut genepool: Vec<(Dna, f64)> = candidates[0..self.survivors_per_generation]
+            .iter()
+            .map(|c| (c.clone(), 0.))
+            .collect();
+
         for gen_idx in 0..self.num_generations {
             log::info!("Starting generation {gen_idx}: ");
             let ids: Vec<usize> = candidates.iter().map(|c| c.id()).collect();
@@ -130,27 +133,27 @@ impl EvoEngine {
             let fitnesses = self.get_fitnesses(&children);
 
             // 2.) Prune survivors based on fitness function
-            // TODO: to make this a proper hill climbing algorithm, we just need to concatenate hall of fame results
-            let survivors = self.prune(&candidates, fitnesses);
-            self.record_survivors(&survivors);
+            self.prune(&mut genepool, &candidates, fitnesses);
+            self.record_genepool(&genepool);
 
             // 3.) Use Mutation function to get back to normal number of sims
-            candidates = self.spawn_children(survivors, self.children_per_survivor);
+            candidates = self.spawn_children(&genepool, self.children_per_survivor);
             let end = Instant::now();
             log::info!("Time to prep next generation: {:?}", end - generation_end);
         }
     }
 
     // generate children from survivors of previously generations
-    pub fn spawn_children(&mut self, survivors: Vec<Dna>, num_children: usize) -> Vec<Dna> {
+    pub fn spawn_children(&mut self, genepool: &[(Dna, f64)], num_children: usize) -> Vec<Dna> {
         let mut children = Vec::new();
-        for mut s in survivors.into_iter() {
+        for (dna, _) in genepool.iter() {
             for _ in 0..num_children {
                 // record parent-child relationship
-                self.history.push((s.id(), self.child_ctr));
+                self.history.push((dna.id(), self.child_ctr));
                 // create new child
-                self.mutate(&mut s);
-                children.push(s.clone());
+                let mut child_dna = dna.clone();
+                self.mutate(&mut child_dna);
+                children.push(child_dna);
             }
         }
 
