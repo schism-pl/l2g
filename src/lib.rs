@@ -23,8 +23,8 @@ impl Default for EvoEngine {
         let seed = SmallRng::from_entropy().gen::<u32>();
 
         let num_generations = 10;
-        let children_per_survivor = 3;
-        let survivors_per_generation = 3;
+        let children_per_survivor = 1;
+        let survivors_per_generation = 15;
 
         let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 100);
 
@@ -44,6 +44,7 @@ impl Default for EvoEngine {
             survivors_per_generation,
             child_ctr: 0,
             history: Vec::new(),
+            fitnesses: Vec::new(),
         }
     }
 }

@@ -31,6 +31,10 @@ pub struct EvoEngine {
     #[serde(default)]
     #[serde(skip_serializing)]
     pub history: Vec<(usize, usize)>, // edge-list of parent-child relationships
+
+    #[serde(default)]
+    #[serde(skip_serializing)]
+    pub fitnesses: Vec<f64>,
 }
 
 impl EvoEngine {
@@ -90,8 +94,9 @@ impl EvoEngine {
             .collect()
     }
 
-    fn get_fitnesses(&self, children: &[Vmmc]) -> Vec<f64> {
+    fn get_fitnesses(&mut self, children: &[Vmmc]) -> Vec<f64> {
         let fitnesses: Vec<f64> = children.iter().map(|c| self.fitness_func.eval(c)).collect();
+        self.fitnesses.extend_from_slice(&fitnesses);
         let avg_fitness = fitnesses.iter().sum::<f64>() / fitnesses.len() as f64;
         log::info!(
             "Children executed: fitnesses = {:?} avg = {avg_fitness}",
