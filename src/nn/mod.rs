@@ -61,6 +61,13 @@ impl Dna {
         Dna::new(0, DnaInner::Fll(config, proto))
     }
 
+    pub fn fresh_fll_fixed_particle(
+        config: FLLFixedParticleConfig,
+        proto: SynthesisProtocol,
+    ) -> Self {
+        Dna::new(0, DnaInner::FllFixedParticle(config, proto))
+    }
+
     pub fn mutate(&mut self, new_id: usize) {
         use DnaInner::*;
         match &mut self.inner {

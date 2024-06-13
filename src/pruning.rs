@@ -1,12 +1,11 @@
-use crate::{fitness::FitnessFunc, nn::Dna};
-use vmmc::vmmc::Vmmc;
+use crate::nn::Dna;
 
-fn get_index_of_least_fit(fitness: &FitnessFunc, values: &[Vmmc]) -> usize {
+fn get_index_of_least_fit(fitnesses: &[f64]) -> usize {
     let mut lowest = f64::MIN;
     let mut index = 0;
-    for (idx, v) in values.iter().enumerate() {
-        if fitness.eval(v) < lowest {
-            lowest = fitness.eval(v);
+    for (idx, v) in fitnesses.iter().enumerate() {
+        if v < &lowest {
+            lowest = *v;
             index = idx;
         }
     }
@@ -15,30 +14,25 @@ fn get_index_of_least_fit(fitness: &FitnessFunc, values: &[Vmmc]) -> usize {
 
 // Note: this function is implemented assuming that computing fitness is cheap
 // pretty easy to optimize if that isn't the case
-pub fn prune(
-    candidates: &[Dna],
-    vmmcs: Vec<Vmmc>,
-    prune_to: usize,
-    fitness: &FitnessFunc,
-) -> Vec<Dna> {
+pub fn prune(candidates: &[Dna], fitnesses: Vec<f64>, prune_to: usize) -> Vec<Dna> {
+    let mut survivor_fitnesses = Vec::new();
     let mut survivors = Vec::new();
-    let mut survivor_states = Vec::new();
 
-    for (idx, vmmc) in vmmcs.into_iter().enumerate() {
-        let c = candidates[idx].clone();
+    for (idx, dna) in candidates.iter().enumerate() {
+        let fitness = fitnesses[idx];
         // the first n children get to start as survivors
         if idx < prune_to {
-            survivors.push(vmmc);
-            survivor_states.push(c);
+            survivor_fitnesses.push(fitness);
+            survivors.push(dna.clone());
             continue;
         }
         // attempt to replace one of the survivors
-        let fit = fitness.eval(&vmmc);
-        let index = get_index_of_least_fit(fitness, &survivors);
-        if fit > fitness.eval(&survivors[index]) {
-            survivors[index] = vmmc;
-            survivor_states[index] = c;
+        // let fit = fitness.eval(&vmmc);
+        let index = get_index_of_least_fit(&survivor_fitnesses);
+        if fitness > fitnesses[index] {
+            survivor_fitnesses[index] = fitness;
+            survivors[index] = dna.clone();
         }
     }
-    survivor_states
+    survivors
 }

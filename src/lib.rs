@@ -1,8 +1,8 @@
 use anyhow::Result;
 use engine::EvoEngine;
 use fitness::FitnessFunc;
+use nn::fll_fixed_particle::FLLFixedParticleConfig;
 use nn::Dna;
-use nn::{fll::FLLConfig, l2g_nn::NnConfig};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use vmmc::{
     protocol::{ProtocolIter, SynthesisProtocol},
@@ -13,6 +13,7 @@ use vmmc::{
 
 pub mod engine;
 pub mod fitness;
+pub mod io;
 pub mod nn;
 pub mod pruning;
 
@@ -26,13 +27,13 @@ impl Default for EvoEngine {
         let children_per_survivor = 3;
         let survivors_per_generation = 1;
 
-        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 10);
+        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 50);
 
         // let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
-        let config = FLLConfig::new(2, 5, 0.5);
+        let config = FLLFixedParticleConfig::new(5, 10, 0.5);
 
         // let init_dna = Dna::new(0, DnaInner::TimeNet(nn_config, protocol));
-        let init_dna = Dna::fresh_fll(config, protocol);
+        let init_dna = Dna::fresh_fll_fixed_particle(config, protocol);
 
         Self {
             sim_params,

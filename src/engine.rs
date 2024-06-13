@@ -1,7 +1,7 @@
-use std::fs::create_dir_all;
 use std::time::Instant;
 
 use crate::fitness::FitnessFunc;
+use crate::io::record_children;
 use crate::nn::Dna;
 use crate::pruning::prune;
 use crate::run_fresh_vmmc;
@@ -9,7 +9,6 @@ use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use vmmc::io::{write_geometry_png, write_protocols_png, write_stats};
 use vmmc::vmmc::Vmmc;
 use vmmc::SimParams;
 
@@ -55,12 +54,12 @@ impl EvoEngine {
         self.survivors_per_generation * self.children_per_survivor
     }
 
-    fn prune(&self, candidates: &[Dna], vmmcs: Vec<Vmmc>) -> Vec<Dna> {
+    fn prune(&self, candidates: &[Dna], fitnesses: Vec<f64>) -> Vec<Dna> {
         prune(
             candidates,
-            vmmcs,
+            fitnesses,
             self.survivors_per_generation(),
-            &self.fitness_func,
+            // &self.fitness_func,
         )
     }
 
@@ -93,6 +92,21 @@ impl EvoEngine {
             .collect()
     }
 
+    fn get_fitnesses(&self, children: &[Vmmc]) -> Vec<f64> {
+        let fitnesses: Vec<f64> = children.iter().map(|c| self.fitness_func.eval(c)).collect();
+        let avg_fitness = fitnesses.iter().sum::<f64>() / fitnesses.len() as f64;
+        log::info!(
+            "Children executed: fitnesses = {:?} avg = {avg_fitness}",
+            fitnesses,
+        );
+        fitnesses
+    }
+
+    fn record_survivors(&self, survivors: &[Dna]) {
+        let ids: Vec<usize> = survivors.iter().map(|c| c.id()).collect();
+        log::info!("Pruned survivors to: {:?}\n", ids);
+    }
+
     pub fn step_all(&mut self, rng: &mut SmallRng) {
         log::info!(
             "Creating threadpool of {} workers\n",
@@ -101,8 +115,8 @@ impl EvoEngine {
 
         // Create initial generation
         let mut candidates = self.initial_candidates();
-        for idx in 0..self.num_generations {
-            log::info!("Starting generation {:?}: ", idx);
+        for gen_idx in 0..self.num_generations {
+            log::info!("Starting generation {gen_idx}: ");
             let ids: Vec<usize> = candidates.iter().map(|c| c.id()).collect();
             log::info!("Candidates: {:?}", ids);
 
@@ -111,33 +125,15 @@ impl EvoEngine {
             let children = self.step_generation(&candidates, rng);
             let generation_end = Instant::now();
             log::info!("Generation execution time: {:?}", generation_end - start);
+            record_children(&candidates, &children, gen_idx);
 
-            // Dump outputs
-            for (child_idx, child) in children.iter().enumerate() {
-                let p_str = format!("./out/{:0>3}/{:0>3}", idx, child_idx);
-                let out_path = std::path::Path::new(&p_str);
-                create_dir_all(out_path).unwrap();
-                write_geometry_png(child, &format!("{p_str}/geometry.png"));
-                // let nn_config = candidates[idx].nn_config();
-                let dna = &candidates[idx];
-                let protocol_iter = candidates[idx].protocol_iter();
-                let toml = toml::to_string(dna).unwrap();
-                std::fs::write(format!("{p_str}/dna.toml"), toml).expect("Unable to write file");
-                write_protocols_png(protocol_iter, &format!("{p_str}/protocols.png"));
-                write_stats(child, &format!("{p_str}/stats.txt"))
-            }
+            let fitnesses = self.get_fitnesses(&children);
 
-            let fitnesses: Vec<f64> = children.iter().map(|c| self.fitness_func.eval(c)).collect();
-            let avg_fitness = fitnesses.iter().sum::<f64>() / fitnesses.len() as f64;
-            log::info!(
-                "Children executed: fitnesses = {:?} avg = {}",
-                fitnesses,
-                avg_fitness
-            );
-            // 2.) Use Fitness function to trim down to the survivors
-            let survivors = self.prune(&candidates, children);
-            let ids: Vec<usize> = survivors.iter().map(|c| c.id()).collect();
-            log::info!("Pruned survivors to: {:?}\n", ids);
+            // 2.) Prune survivors based on fitness function
+            // TODO: to make this a proper hill climbing algorithm, we just need to concatenate hall of fame results
+            let survivors = self.prune(&candidates, fitnesses);
+            self.record_survivors(&survivors);
+
             // 3.) Use Mutation function to get back to normal number of sims
             candidates = self.spawn_children(survivors, self.children_per_survivor);
             let end = Instant::now();
