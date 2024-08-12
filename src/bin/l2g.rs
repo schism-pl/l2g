@@ -1,5 +1,6 @@
 use clap::Parser;
 use l2g::engine::EvoEngine;
+use l2g::io::write_progress_png;
 use log::LevelFilter;
 use log4rs::append::console::{ConsoleAppender, Target};
 use log4rs::append::file::FileAppender;
@@ -91,5 +92,10 @@ fn main() -> anyhow::Result<()> {
 
     engine.step_all(&mut rng);
 
+    let fit_path = format!("{}/fitnesses.txt", config.output_dir());
+    fs::write(fit_path, format!("{:?}", &engine.fitnesses)).expect("Unable to write file");
+
+    let progress_path = format!("{}/progress.png", config.output_dir());
+    write_progress_png(&engine.fitnesses, &progress_path);
     Ok(())
 }
