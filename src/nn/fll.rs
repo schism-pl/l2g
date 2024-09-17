@@ -13,12 +13,11 @@ use vmmc::protocol::{ProtocolStep, SynthesisProtocol};
 pub struct FLLConfig {
     nn: NN,
     num_phases: usize,
-    phase_length: usize,
     mutation_factor: f32,
 }
 
 impl FLLConfig {
-    pub fn new(num_phases: usize, phase_length: usize, mutation_factor: f32) -> Self {
+    pub fn new(num_phases: usize, mutation_factor: f32) -> Self {
         let nn = NN::new(&[num_phases, num_phases, num_phases * 2])
             .with_learning_rate(0.1)
             .with_hidden_type(ActivationType::Sigmoid)
@@ -27,7 +26,6 @@ impl FLLConfig {
         Self {
             nn,
             num_phases,
-            phase_length,
             mutation_factor,
         }
     }
@@ -51,11 +49,13 @@ impl FLLConfig {
         let mut mu = proto.chemical_potential(0);
 
         let mut steps = Vec::new();
+        let phase_len = proto.len() / self.num_phases;
+        assert_eq!(phase_len * self.num_phases, proto.len());
 
         for phase in 0..self.num_phases {
-            let epsilon_delta = epsilon_slopes[phase] as f64 / self.phase_length as f64;
-            let mu_delta = mu_slopes[phase] as f64 / self.phase_length as f64;
-            for _ in 0..self.phase_length {
+            let epsilon_delta = epsilon_slopes[phase] as f64 / phase_len as f64;
+            let mu_delta = mu_slopes[phase] as f64 / phase_len as f64;
+            for _ in 0..phase_len {
                 let step = ProtocolStep::new(mu, epsilon);
                 steps.push(step);
                 epsilon += epsilon_delta;
@@ -63,7 +63,7 @@ impl FLLConfig {
             }
         }
 
-        assert_eq!(steps.len(), self.num_phases * self.phase_length);
+        assert_eq!(steps.len(), self.num_phases * phase_len);
         steps
     }
 }

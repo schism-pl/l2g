@@ -14,7 +14,7 @@ fn main() -> anyhow::Result<()> {
     let proto = SynthesisProtocol::flat_protocol(0.0, 10.0, 20);
 
     // let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
-    let config = FLLConfig::new(10, 100, 0.5);
+    let config = FLLConfig::new(10, 0.5);
 
     let mut dna = Dna::fresh_fll(config, proto);
     for idx in 0..50 {

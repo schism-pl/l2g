@@ -29,7 +29,7 @@ impl Default for EvoEngine {
         let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 50);
 
         // let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
-        let config = FLLTempOnlyConfig::new(10, 5, 0.5);
+        let config = FLLTempOnlyConfig::new(10, 0.5);
 
         // let init_dna = Dna::new(0, DnaInner::TimeNet(nn_config, protocol));
         let init_dna = Dna::fresh_fll_fixed_particle(config, protocol);

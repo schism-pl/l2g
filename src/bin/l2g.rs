@@ -75,10 +75,10 @@ fn main() -> anyhow::Result<()> {
         ip.box_height,
         ip.initial_particles
     );
-    // TODO: print length of each protocol
+
     // log::info!(
     //     "Each simulation runs for {} megasteps",
-    //     ip.protocol.num_megasteps()
+    //     engine.init_dna.num_megasteps()
     // );
 
     // Init I/O
