@@ -1,23 +1,19 @@
-// use rand::{rngs::SmallRng, SeedableRng};
-/// Implement nueral net implementation from original paper
-// use rand_distr::{Distribution, Normal};
 use runnt::{activation::ActivationType, nn::NN, regularization::Regularization};
 use serde::{Deserialize, Serialize};
 use vmmc::protocol::{ProtocolStep, SynthesisProtocol};
 
-// TODO: fixed at self.num_phases,self.num_phases,self.num_phases*2 architecture
 // TODO: only uses protocol for initial info
 // TODO: randomness here is not reproducible
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct FLLFixedParticleConfig {
+pub struct FLLTempOnlyConfig {
     nn: NN,
     num_phases: usize,
     phase_length: usize,
     mutation_factor: f32,
 }
 
-impl FLLFixedParticleConfig {
+impl FLLTempOnlyConfig {
     pub fn new(num_phases: usize, phase_length: usize, mutation_factor: f32) -> Self {
         let nn = NN::new(&[num_phases, num_phases, num_phases])
             .with_learning_rate(0.1)

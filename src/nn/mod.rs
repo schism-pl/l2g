@@ -1,10 +1,10 @@
 pub mod fll;
-pub mod fll_fixed_particle;
+pub mod fll_temp_only;
 pub mod l2g_nn;
 
 use crate::nn::l2g_nn::NnConfig;
 use fll::FLLConfig;
-use fll_fixed_particle::FLLFixedParticleConfig;
+use fll_temp_only::FLLTempOnlyConfig;
 use serde::{Deserialize, Serialize};
 use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
 
@@ -12,7 +12,7 @@ use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
 enum DnaInner {
     TimeNet(NnConfig, SynthesisProtocol),
     Fll(FLLConfig, SynthesisProtocol),
-    FllFixedParticle(FLLFixedParticleConfig, SynthesisProtocol),
+    FllTempOnly(FLLTempOnlyConfig, SynthesisProtocol),
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -35,7 +35,7 @@ impl Dna {
         let proto_vec = match &self.inner {
             TimeNet(nn, proto) => nn.proto_vec(proto),
             Fll(nn, proto) => nn.proto_vec(proto),
-            FllFixedParticle(nn, proto) => nn.proto_vec(proto),
+            FllTempOnly(nn, proto) => nn.proto_vec(proto),
         };
 
         StaticMegastepIter {
@@ -47,9 +47,9 @@ impl Dna {
     pub fn type_str(&self) -> &str {
         use DnaInner::*;
         match self.inner {
-            TimeNet(..) => "Time Network",
+            TimeNet(..) => "Time Network (Steve's code)",
             Fll(..) => "FLL (fixed-length linear)",
-            FllFixedParticle(..) => "FLL (fixed-length linear) with fixed particle count",
+            FllTempOnly(..) => "FLL (fixed-length linear) Temp-only",
         }
     }
 
@@ -62,10 +62,10 @@ impl Dna {
     }
 
     pub fn fresh_fll_fixed_particle(
-        config: FLLFixedParticleConfig,
+        config: FLLTempOnlyConfig,
         proto: SynthesisProtocol,
     ) -> Self {
-        Dna::new(0, DnaInner::FllFixedParticle(config, proto))
+        Dna::new(0, DnaInner::FllTempOnly(config, proto))
     }
 
     pub fn mutate(&mut self, new_id: usize) {
@@ -75,7 +75,7 @@ impl Dna {
                 nn.set_child_id(new_id as u32);
             }
             Fll(nn, ..) => nn.mutate(),
-            FllFixedParticle(nn, ..) => nn.mutate(),
+            FllTempOnly(nn, ..) => nn.mutate(),
         }
         self.id = new_id;
     }
