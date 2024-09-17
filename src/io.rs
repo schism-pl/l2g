@@ -6,10 +6,10 @@ use vmmc::{
 
 use crate::nn::Dna;
 
-pub fn record_children(candidates: &[Dna], children: &[Vmmc], gen_idx: usize) {
+pub fn record_children(output_dir: &str, candidates: &[Dna], children: &[Vmmc], gen_idx: usize) {
     // Dump outputs
     for (child_idx, child) in children.iter().enumerate() {
-        let p_str = format!("./out/{:0>3}/{:0>3}", gen_idx, child_idx);
+        let p_str = format!("./{output_dir}/{:0>3}/{:0>3}", gen_idx, child_idx);
         let out_path = std::path::Path::new(&p_str);
         create_dir_all(out_path).unwrap();
         write_geometry_png(child, &format!("{p_str}/geometry.png"));

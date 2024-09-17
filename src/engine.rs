@@ -110,7 +110,7 @@ impl EvoEngine {
         log::info!("Updated genepool: {:?}\n", ids);
     }
 
-    pub fn step_all(&mut self, rng: &mut SmallRng) {
+    pub fn step_all_and_save(&mut self, output_dir: &str, rng: &mut SmallRng) {
         log::info!(
             "Creating threadpool of {} workers\n",
             self.generation_size()
@@ -133,7 +133,7 @@ impl EvoEngine {
             let children = self.step_generation(&candidates, rng);
             let generation_end = Instant::now();
             log::info!("Generation execution time: {:?}", generation_end - start);
-            record_children(&candidates, &children, gen_idx);
+            record_children(output_dir,&candidates, &children, gen_idx);
 
             let fitnesses = self.get_fitnesses(&children);
 

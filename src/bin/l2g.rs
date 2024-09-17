@@ -11,13 +11,13 @@ use rand::SeedableRng;
 use std::fs::{self, create_dir_all};
 use vmmc::cli::VmmcConfig;
 
-fn init_logging() -> anyhow::Result<()> {
+fn init_logging(output_dir: &str) -> anyhow::Result<()> {
     // env_logger::init();
     // log::set_logger(&L2G_LOGGER)?;
     // log::set_max_level(LevelFilter::Info);
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{m}\n")))
-        .build("out/output.log")?;
+        .build(format!("{output_dir}/output.log"))?;
 
     let stdout = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{m}\n")))
@@ -41,9 +41,9 @@ fn init_logging() -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
-    init_logging()?;
     // Get commandline arguments
     let config = VmmcConfig::parse();
+    init_logging(config.output_dir())?;
 
     let mut engine = if config.input() != "" {
         log::info!("Reading configuration from {}", config.input());
@@ -90,7 +90,7 @@ fn main() -> anyhow::Result<()> {
     let toml = toml::to_string(&engine).unwrap();
     fs::write(config.toml(), toml).expect("Unable to write file");
 
-    engine.step_all(&mut rng);
+    engine.step_all_and_save(config.output_dir(), &mut rng);
 
     let fit_path = format!("{}/fitnesses.txt", config.output_dir());
     fs::write(fit_path, format!("{:?}", &engine.fitnesses)).expect("Unable to write file");
