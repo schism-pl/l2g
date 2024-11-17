@@ -63,3 +63,14 @@ pub fn run_fresh_vmmc(
     let _: Result<()> = run_vmmc(&mut vmmc, protocol_iter, vmmc::no_callback(), rng);
     vmmc
 }
+
+pub fn run_fresh_vmmc_to_console(
+    sim_params: &SimParams,
+    protocol_iter: impl ProtocolIter,
+    rng: &mut SmallRng,
+) -> Vmmc {
+    let initial_interaction_energy = protocol_iter.peek().interaction_energy();
+    let mut vmmc = vmmc_from_simparams(sim_params, initial_interaction_energy, rng);
+    let _: Result<()> = run_vmmc(&mut vmmc, protocol_iter, Box::new(vmmc::StdCallback::new()), rng);
+    vmmc
+}
