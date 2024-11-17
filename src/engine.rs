@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use crate::fitness::FitnessFunc;
-use crate::io::record_children;
+use crate::io::{record_child, record_child_config};
 use crate::nn::Dna;
 use crate::pruning::prune;
 use crate::run_fresh_vmmc;
@@ -81,7 +81,20 @@ impl EvoEngine {
     }
 
     // Executes a generation
-    fn step_generation(&mut self, states: &[Dna], rng: &mut SmallRng) -> Vec<Vmmc> {
+    // fn step_generation(&mut self, states: &[Dna], rng: &mut SmallRng) -> Vec<Vmmc> {
+    //     let seeds: Vec<u64> = (0..states.len()).map(|_| rng.gen()).collect();
+    //     states
+    //         .par_iter()
+    //         .enumerate()
+    //         .map(|(idx, s)| {
+    //             let thread_seed = seeds[idx];
+    //             let mut thread_rng = SmallRng::seed_from_u64(thread_seed);
+    //             self.step_one(s, &mut thread_rng)
+    //         })
+    //         .collect()
+    // }
+
+    fn step_generation_to(&mut self, states: &[Dna], rng: &mut SmallRng, output_dir: &str) -> Vec<Vmmc> {
         let seeds: Vec<u64> = (0..states.len()).map(|_| rng.gen()).collect();
         states
             .par_iter()
@@ -89,7 +102,12 @@ impl EvoEngine {
             .map(|(idx, s)| {
                 let thread_seed = seeds[idx];
                 let mut thread_rng = SmallRng::seed_from_u64(thread_seed);
-                self.step_one(s, &mut thread_rng)
+                let p_str = format!("./{output_dir}/{:0>3}", idx);
+
+                record_child_config(&p_str, s);
+                let child = self.step_one(s, &mut thread_rng);
+                record_child(&p_str, s, &child);
+                child
             })
             .collect()
     }
@@ -130,10 +148,12 @@ impl EvoEngine {
 
             // 1.) Execute a generations worth of sims
             let start = Instant::now();
-            let children = self.step_generation(&candidates, rng);
+            let gen_dir = format!("./{output_dir}/{:0>3}", gen_idx);
+            let children = self.step_generation_to(&candidates, rng, &gen_dir);
+        
             let generation_end = Instant::now();
             log::info!("Generation execution time: {:?}", generation_end - start);
-            record_children(output_dir,&candidates, &children, gen_idx);
+            // record_children(output_dir, &candidates, &children, );
 
             let fitnesses = self.get_fitnesses(&children);
 

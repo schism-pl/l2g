@@ -2,7 +2,7 @@ use anyhow::Result;
 use engine::EvoEngine;
 use fitness::FitnessFunc;
 use nn::fll::FLLConfig;
-use nn::{fll_temp_only::FLLTempOnlyConfig, l2g_nn::NnConfig};
+// use nn::{fll_temp_only::FLLTempOnlyConfig, l2g_nn::NnConfig};
 use nn::Dna;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use vmmc::{
