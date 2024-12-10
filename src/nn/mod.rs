@@ -1,18 +1,19 @@
 pub mod fll;
-pub mod fll_temp_only;
-pub mod l2g_nn;
+pub mod timenet;
+pub mod microstate;
 
-use crate::nn::l2g_nn::NnConfig;
+use crate::nn::timenet::TimeNetConfig;
 use fll::FLLConfig;
-use fll_temp_only::FLLTempOnlyConfig;
+use microstate::MicrostateConfig;
 use serde::{Deserialize, Serialize};
 use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
 
+
 #[derive(Clone, Serialize, Deserialize)]
 enum DnaInner {
-    TimeNet(NnConfig, SynthesisProtocol),
+    TimeNet(TimeNetConfig, SynthesisProtocol),
     Fll(FLLConfig, SynthesisProtocol),
-    FllTempOnly(FLLTempOnlyConfig, SynthesisProtocol),
+    MicroState(MicrostateConfig, SynthesisProtocol)
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -30,12 +31,13 @@ impl Dna {
         self.id
     }
 
+    // TODO: needs the protocol to have access to the vmmc    
     pub fn protocol_iter(&self) -> StaticMegastepIter {
         use DnaInner::*;
         let proto_vec = match &self.inner {
             TimeNet(nn, proto) => nn.proto_vec(proto),
             Fll(nn, proto) => nn.proto_vec(proto),
-            FllTempOnly(nn, proto) => nn.proto_vec(proto),
+            MicroState(config, proto) => unimplemented!(), //config.proto_vec(patch_bonds, proto)
         };
 
         StaticMegastepIter {
@@ -49,23 +51,16 @@ impl Dna {
         match self.inner {
             TimeNet(..) => "Time Network (Steve's code)",
             Fll(..) => "FLL (fixed-length linear)",
-            FllTempOnly(..) => "FLL (fixed-length linear) Temp-only",
+            MicroState(..) => "Microstate + Time Network (Steve's code)"
         }
     }
 
-    pub fn fresh_time_net(nn_config: NnConfig, proto: SynthesisProtocol) -> Self {
+    pub fn fresh_time_net(nn_config: TimeNetConfig, proto: SynthesisProtocol) -> Self {
         Dna::new(0, DnaInner::TimeNet(nn_config, proto))
     }
 
     pub fn fresh_fll(config: FLLConfig, proto: SynthesisProtocol) -> Self {
         Dna::new(0, DnaInner::Fll(config, proto))
-    }
-
-    pub fn fresh_fll_fixed_particle(
-        config: FLLTempOnlyConfig,
-        proto: SynthesisProtocol,
-    ) -> Self {
-        Dna::new(0, DnaInner::FllTempOnly(config, proto))
     }
 
     pub fn mutate(&mut self, new_id: usize) {
@@ -75,7 +70,7 @@ impl Dna {
                 nn.set_child_id(new_id as u32);
             }
             Fll(nn, ..) => nn.mutate(),
-            FllTempOnly(nn, ..) => nn.mutate(),
+            MicroState(nn, ..) => nn.mutate(),
         }
         self.id = new_id;
     }
