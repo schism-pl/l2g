@@ -37,7 +37,7 @@ impl Dna {
         let proto_vec = match &self.inner {
             TimeNet(nn, proto) => nn.proto_vec(proto),
             Fll(nn, proto) => nn.proto_vec(proto),
-            MicroState(config, proto) => unimplemented!(), //config.proto_vec(patch_bonds, proto)
+            MicroState(_config, _proto) => unimplemented!(), //config.proto_vec(patch_bonds, proto)
         };
 
         StaticMegastepIter {
