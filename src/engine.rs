@@ -80,20 +80,6 @@ impl EvoEngine {
         run_fresh_vmmc(self.sim_params(), protocol_iter, rng)
     }
 
-    // Executes a generation
-    // fn step_generation(&mut self, states: &[Dna], rng: &mut SmallRng) -> Vec<Vmmc> {
-    //     let seeds: Vec<u64> = (0..states.len()).map(|_| rng.gen()).collect();
-    //     states
-    //         .par_iter()
-    //         .enumerate()
-    //         .map(|(idx, s)| {
-    //             let thread_seed = seeds[idx];
-    //             let mut thread_rng = SmallRng::seed_from_u64(thread_seed);
-    //             self.step_one(s, &mut thread_rng)
-    //         })
-    //         .collect()
-    // }
-
     fn step_generation_to(&mut self, states: &[Dna], rng: &mut SmallRng, output_dir: &str) -> Vec<Vmmc> {
         let seeds: Vec<u64> = (0..states.len()).map(|_| rng.gen()).collect();
         states

@@ -6,13 +6,6 @@ use vmmc::{
 
 use crate::nn::Dna;
 
-pub fn record_children(gen_dir: &str, candidates: &[Dna], children: &[Vmmc]) {
-    // Dump outputs
-    for (child_idx, child) in children.iter().enumerate() {
-        let p_str = format!("./{gen_dir}/{:0>3}", child_idx);
-        record_child(&p_str, &candidates[child_idx], child);
-    }
-}
 
 pub fn record_child_config(p_str: &str, dna: &Dna) {
     let out_path = std::path::Path::new(&p_str);
@@ -22,12 +15,6 @@ pub fn record_child_config(p_str: &str, dna: &Dna) {
 }
 
 pub fn record_child(p_str: &str, dna: &Dna, child: &Vmmc) {
-    // Dump outputs
-    // let out_path = std::path::Path::new(&p_str);
-    // create_dir_all(out_path).unwrap();
-    // let toml = toml::to_string(dna).unwrap();
-    // std::fs::write(format!("{p_str}/dna.toml"), toml).expect("Unable to write file");
-
     write_geometry_png(child, &format!("{p_str}/geometry.png"));
     let protocol_iter = dna.protocol_iter();
     write_protocols_png(protocol_iter, &format!("{p_str}/protocols.png"));
