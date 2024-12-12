@@ -5,10 +5,12 @@ use crate::io::{record_child, record_child_config};
 use crate::nn::Dna;
 use crate::pruning::prune;
 use crate::run_fresh_vmmc;
+use anyhow::Result;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use vmmc::protocol::ProtocolStep;
 use vmmc::vmmc::Vmmc;
 use vmmc::SimParams;
 
@@ -75,12 +77,17 @@ impl EvoEngine {
         self.spawn_children(&vec![(self.init_dna.clone(), 0.)], self.generation_size())
     }
 
-    fn step_one(&self, dna: &Dna, rng: &mut SmallRng) -> Vmmc {
+    fn step_one(&self, dna: &Dna, rng: &mut SmallRng) -> Result<(Vec<ProtocolStep>, Vmmc)> {
         let protocol_iter = dna.protocol_iter();
         run_fresh_vmmc(self.sim_params(), protocol_iter, rng)
     }
 
-    fn step_generation_to(&mut self, states: &[Dna], rng: &mut SmallRng, output_dir: &str) -> Vec<Vmmc> {
+    fn step_generation_to(
+        &mut self,
+        states: &[Dna],
+        rng: &mut SmallRng,
+        output_dir: &str,
+    ) -> Vec<Vmmc> {
         let seeds: Vec<u64> = (0..states.len()).map(|_| rng.gen()).collect();
         states
             .par_iter()
@@ -91,8 +98,10 @@ impl EvoEngine {
                 let p_str = format!("./{output_dir}/{:0>3}", idx);
 
                 record_child_config(&p_str, s);
-                let child = self.step_one(s, &mut thread_rng);
-                record_child(&p_str, s, &child);
+                let (proto, child) = self
+                    .step_one(s, &mut thread_rng)
+                    .expect("Simulation failed");
+                record_child(&p_str, &child, proto);
                 child
             })
             .collect()
@@ -136,7 +145,7 @@ impl EvoEngine {
             let start = Instant::now();
             let gen_dir = format!("./{output_dir}/{:0>3}", gen_idx);
             let children = self.step_generation_to(&candidates, rng, &gen_dir);
-        
+
             let generation_end = Instant::now();
             log::info!("Generation execution time: {:?}", generation_end - start);
             // record_children(output_dir, &candidates, &children, );

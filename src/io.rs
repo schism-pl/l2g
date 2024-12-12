@@ -1,11 +1,11 @@
 use std::fs::create_dir_all;
 use vmmc::{
     io::{write_geometry_png, write_protocols_png, write_stats},
+    protocol::ProtocolStep,
     vmmc::Vmmc,
 };
 
 use crate::nn::Dna;
-
 
 pub fn record_child_config(p_str: &str, dna: &Dna) {
     let out_path = std::path::Path::new(&p_str);
@@ -14,10 +14,10 @@ pub fn record_child_config(p_str: &str, dna: &Dna) {
     std::fs::write(format!("{p_str}/dna.toml"), toml).expect("Unable to write file");
 }
 
-pub fn record_child(p_str: &str, dna: &Dna, child: &Vmmc) {
+pub fn record_child(p_str: &str, child: &Vmmc, proto: Vec<ProtocolStep>) {
     write_geometry_png(child, &format!("{p_str}/geometry.png"));
-    let protocol_iter = dna.protocol_iter();
-    write_protocols_png(protocol_iter, &format!("{p_str}/protocols.png"));
+    // let protocol_iter = dna.protocol_iter();
+    write_protocols_png(proto, &format!("{p_str}/protocols.png"));
     write_stats(child, &format!("{p_str}/stats.txt"))
 }
 
@@ -39,7 +39,6 @@ pub fn write_progress_png(fitnesses: &[f64], pathname: &str) {
         .build_cartesian_2d(0..num_candidates - 1, min_fitness..max_fitness)
         .unwrap();
 
-
     ctx.configure_mesh().draw().unwrap();
 
     let score_line_style = RGBColor(0xf3, 0x70, 0x21).stroke_width(2);
@@ -49,14 +48,16 @@ pub fn write_progress_png(fitnesses: &[f64], pathname: &str) {
     let mut best_score_line: Vec<(i32, f64)> = Vec::new();
     for (idx, fit) in fitnesses.iter().enumerate() {
         score_line.push((idx as i32, *fit));
-        let last_score = if idx == 0 {0.0} else {best_score_line[idx-1].1};
+        let last_score = if idx == 0 {
+            0.0
+        } else {
+            best_score_line[idx - 1].1
+        };
         best_score_line.push((idx as i32, fit.max(last_score)));
     }
 
-    ctx
-        .draw_series(LineSeries::new(score_line, score_line_style))
+    ctx.draw_series(LineSeries::new(score_line, score_line_style))
         .unwrap();
-    ctx
-        .draw_series(LineSeries::new(best_score_line, best_score_line_style))
+    ctx.draw_series(LineSeries::new(best_score_line, best_score_line_style))
         .unwrap();
 }

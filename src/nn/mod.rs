@@ -1,19 +1,18 @@
 pub mod fll;
-pub mod timenet;
 pub mod microstate;
+pub mod timenet;
 
 use crate::nn::timenet::TimeNetConfig;
 use fll::FLLConfig;
 use microstate::MicrostateConfig;
 use serde::{Deserialize, Serialize};
-use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
-
+use vmmc::protocol::{ProtocolIter, ProtocolStep, SynthesisProtocol};
 
 #[derive(Clone, Serialize, Deserialize)]
 enum DnaInner {
     TimeNet(TimeNetConfig, SynthesisProtocol),
     Fll(FLLConfig, SynthesisProtocol),
-    MicroState(MicrostateConfig, SynthesisProtocol)
+    MicroState(MicrostateConfig, SynthesisProtocol),
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -31,18 +30,27 @@ impl Dna {
         self.id
     }
 
-    // TODO: needs the protocol to have access to the vmmc    
-    pub fn protocol_iter(&self) -> StaticMegastepIter {
-        use DnaInner::*;
-        let proto_vec = match &self.inner {
-            TimeNet(nn, proto) => nn.proto_vec(proto),
-            Fll(nn, proto) => nn.proto_vec(proto),
-            MicroState(_config, _proto) => unimplemented!(), 
-        };
+    // TODO: needs the protocol to have access to the vmmc
+    // pub fn protocol_iter(&self) -> StaticMegastepIter {
+    //     use DnaInner::*;
+    //     let proto_vec = match &self.inner {
+    //         TimeNet(nn, proto) => nn.proto_vec(proto),
+    //         Fll(nn, proto) => nn.proto_vec(proto),
+    //         MicroState(_config, _proto) => unimplemented!(),
+    //     };
 
-        StaticMegastepIter {
-            inner: proto_vec,
-            t: 0,
+    //     StaticMegastepIter {
+    //         inner: proto_vec,
+    //         t: 0,
+    //     }
+    // }
+
+    pub fn protocol_iter(&self) -> Box<dyn ProtocolIter> {
+        use DnaInner::*;
+        match &self.inner {
+            TimeNet(nn, proto) => Box::new(nn.proto_vec(proto)),
+            Fll(nn, proto) => Box::new(nn.proto_vec(proto)),
+            MicroState(_config, _proto) => unimplemented!(),
         }
     }
 
@@ -51,7 +59,7 @@ impl Dna {
         match self.inner {
             TimeNet(..) => "Time Network (Steve's code)",
             Fll(..) => "FLL (fixed-length linear)",
-            MicroState(..) => "Microstate + Time Network (Steve's code)"
+            MicroState(..) => "Microstate + Time Network (Steve's code)",
         }
     }
 
@@ -73,38 +81,5 @@ impl Dna {
             MicroState(nn, ..) => nn.mutate(),
         }
         self.id = new_id;
-    }
-}
-
-pub struct StaticMegastepIter {
-    inner: Vec<ProtocolStep>,
-    t: usize,
-}
-
-impl Iterator for StaticMegastepIter {
-    type Item = ProtocolStep;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.t >= self.inner.len() {
-            return None;
-        }
-        let r = self.inner[self.t].clone();
-        self.t += 1;
-        Some(r)
-    }
-}
-
-impl ExactSizeIterator for StaticMegastepIter {
-    // We can easily calculate the remaining number of iterations.
-    fn len(&self) -> usize {
-        self.inner.len() - self.t
-    }
-}
-
-impl Peekable for StaticMegastepIter {
-    type Output = ProtocolStep;
-
-    fn peek(&self) -> Self::Output {
-        self.inner[self.t].clone()
     }
 }

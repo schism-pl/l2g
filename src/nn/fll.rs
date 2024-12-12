@@ -3,7 +3,10 @@
 // use rand_distr::{Distribution, Normal};
 use runnt::{activation::ActivationType, nn::NN, regularization::Regularization};
 use serde::{Deserialize, Serialize};
-use vmmc::protocol::{ProtocolStep, SynthesisProtocol};
+use vmmc::{
+    protocol::{ProtocolIter, ProtocolStep, SynthesisProtocol},
+    vmmc::Vmmc,
+};
 
 // TODO: fixed at self.num_phases,self.num_phases,self.num_phases*2 architecture
 // TODO: only uses protocol for initial info
@@ -39,7 +42,7 @@ impl FLLConfig {
         self.nn.set_weights(&weights);
     }
 
-    pub fn proto_vec(&self, proto: &SynthesisProtocol) -> Vec<ProtocolStep> {
+    pub fn proto_vec(&self, proto: &SynthesisProtocol) -> impl ProtocolIter {
         let times =
             Vec::from_iter((0..self.num_phases).map(|phase| phase as f32 / self.num_phases as f32));
         let mut epsilon_slopes = self.nn.forward(&times);
@@ -64,6 +67,49 @@ impl FLLConfig {
         }
 
         assert_eq!(steps.len(), self.num_phases * phase_len);
-        steps
+        StaticMegastepIter { inner: steps, t: 0 }
     }
 }
+
+pub struct StaticMegastepIter {
+    inner: Vec<ProtocolStep>,
+    t: usize,
+}
+
+impl ProtocolIter for StaticMegastepIter {
+    fn next(&mut self, _vmmc: &Vmmc) -> Option<ProtocolStep> {
+        if self.t >= self.inner.len() {
+            return None;
+        }
+        let r = self.inner[self.t].clone();
+        self.t += 1;
+        Some(r)
+    }
+
+    fn peek(&self, _vmmc: &Vmmc) -> ProtocolStep {
+        self.inner[self.t].clone()
+    }
+
+    fn start(&self) -> ProtocolStep {
+        self.inner[0].clone()
+    }
+
+    fn len(&self) -> usize {
+        self.inner.len() - self.t
+    }
+}
+
+// impl ExactSizeIterator for StaticMegastepIter {
+//     // We can easily calculate the remaining number of iterations.
+//     fn len(&self) -> usize {
+//         self.inner.len() - self.t
+//     }
+// }
+
+// impl Peekable for StaticMegastepIter {
+//     type Output = ProtocolStep;
+
+//     fn peek(&self) -> Self::Output {
+//         self.inner[self.t].clone()
+//     }
+// }

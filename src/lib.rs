@@ -6,7 +6,7 @@ use nn::fll::FLLConfig;
 use nn::Dna;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use vmmc::{
-    protocol::{ProtocolIter, SynthesisProtocol},
+    protocol::{ProtocolIter, ProtocolStep, SynthesisProtocol},
     run_vmmc,
     vmmc::Vmmc,
     vmmc_from_simparams, SimParams,
@@ -55,22 +55,27 @@ impl Default for EvoEngine {
 
 pub fn run_fresh_vmmc(
     sim_params: &SimParams,
-    protocol_iter: impl ProtocolIter,
+    protocol_iter: Box<dyn ProtocolIter>,
     rng: &mut SmallRng,
-) -> Vmmc {
-    let initial_interaction_energy = protocol_iter.peek().interaction_energy();
+) -> Result<(Vec<ProtocolStep>, Vmmc)> {
+    let initial_interaction_energy = protocol_iter.start().interaction_energy();
     let mut vmmc = vmmc_from_simparams(sim_params, initial_interaction_energy, rng);
-    let _: Result<()> = run_vmmc(&mut vmmc, protocol_iter, vmmc::no_callback(), rng);
-    vmmc
+    let (proto, _) = run_vmmc(&mut vmmc, protocol_iter, vmmc::no_callback(), rng)?;
+    Ok((proto, vmmc))
 }
 
 pub fn run_fresh_vmmc_to_console(
     sim_params: &SimParams,
-    protocol_iter: impl ProtocolIter,
+    protocol_iter: Box<dyn ProtocolIter>,
     rng: &mut SmallRng,
-) -> Vmmc {
-    let initial_interaction_energy = protocol_iter.peek().interaction_energy();
+) -> Result<(Vec<ProtocolStep>, Vmmc)> {
+    let initial_interaction_energy = protocol_iter.start().interaction_energy();
     let mut vmmc = vmmc_from_simparams(sim_params, initial_interaction_energy, rng);
-    let _: Result<()> = run_vmmc(&mut vmmc, protocol_iter, Box::new(vmmc::StdCallback::new()), rng);
-    vmmc
+    let (proto, _) = run_vmmc(
+        &mut vmmc,
+        protocol_iter,
+        Box::new(vmmc::StdCallback::new()),
+        rng,
+    )?;
+    Ok((proto, vmmc))
 }

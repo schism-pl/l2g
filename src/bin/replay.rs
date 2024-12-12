@@ -37,7 +37,7 @@ use std::fs;
 fn main() -> anyhow::Result<()> {
     // Get commandline arguments
     // 1) sim params
-    // 2) 
+    // 2)
     let args: Vec<String> = std::env::args().collect();
     let config_path = args[1].clone();
     let dna_path = args[2].clone();
@@ -48,14 +48,11 @@ fn main() -> anyhow::Result<()> {
     let contents = fs::read_to_string(dna_path)?;
     let dna: Dna = toml::from_str(&contents)?;
 
-
     let seed = engine.seed;
     let mut rng = SmallRng::seed_from_u64(seed as u64);
 
     let protocol_iter = dna.protocol_iter();
     let _ = run_fresh_vmmc_to_console(engine.sim_params(), protocol_iter, &mut rng);
-
-
 
     // let config = VmmcConfig::parse();
     // init_logging(config.output_dir())?;

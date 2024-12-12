@@ -38,17 +38,19 @@ impl MicrostateConfig {
         self.nn.set_weights(&weights);
     }
 
-
     pub fn proto_vec(&self, patch_bonds: &[usize], proto: &SynthesisProtocol) -> Vec<ProtocolStep> {
         let mut steps = Vec::new();
         for t in 0..self.len {
             let time = t as f32 / self.len as f32;
-            let patches = patch_bonds.iter().map(|&c| c as f32 / 1000.0).collect::<Vec<_>>();
+            let patches = patch_bonds
+                .iter()
+                .map(|&c| c as f32 / 1000.0)
+                .collect::<Vec<_>>();
             let mut inputs = patches.to_vec();
             inputs.push(time);
 
             let outputs = self.nn.forward(&inputs);
-            
+
             let orig_epsilon = proto.interaction_energy(t);
             let orig_mu = proto.chemical_potential(t);
 
