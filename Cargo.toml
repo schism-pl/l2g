@@ -14,10 +14,6 @@ name = "l2g"
 path = "src/bin/l2g.rs"
 
 [[bin]]
-name = "mutation_viz"
-path = "src/bin/mutation_viz.rs"
-
-[[bin]]
 name = "replay"
 path = "src/bin/replay.rs"
 

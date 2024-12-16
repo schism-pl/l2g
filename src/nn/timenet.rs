@@ -8,14 +8,14 @@ use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
 // Uniquely IDs a nueral net
 // NN can be reconstructed by building nn from original set and
 // mutating it by `child_id` times
-pub struct NnConfig {
+pub struct TimeNetConfig {
     orig_seed: u32,
     child_id: u32,
     num_layers: u32,
     mutation_factor: f64,
 }
 
-impl NnConfig {
+impl TimeNetConfig {
     pub fn new(orig_seed: u32, child_id: u32, num_layers: u32, mutation_factor: f64) -> Self {
         Self {
             orig_seed,
@@ -80,7 +80,7 @@ pub struct NueralNet {
 }
 
 impl NueralNet {
-    pub fn from_config(config: &NnConfig) -> Self {
+    pub fn from_config(config: &TimeNetConfig) -> Self {
         let mut rng = SmallRng::seed_from_u64(config.orig_seed as u64);
         let normal = Normal::new(0.0, 1.0).unwrap();
 
