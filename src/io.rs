@@ -35,7 +35,7 @@ pub fn write_progress_png(fitnesses: &[f64], pathname: &str) {
     let mut ctx = ChartBuilder::on(&root_area)
         .set_label_area_size(LabelAreaPosition::Left, 32)
         .set_label_area_size(LabelAreaPosition::Bottom, 32)
-        .caption("Interaction Energy", ("sans-serif", 32))
+        .caption("Fitness", ("sans-serif", 32))
         .build_cartesian_2d(0..num_candidates - 1, min_fitness..max_fitness)
         .unwrap();
 

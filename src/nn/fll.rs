@@ -42,7 +42,7 @@ impl FLLConfig {
         self.nn.set_weights(&weights);
     }
 
-    pub fn proto_vec(&self, proto: &SynthesisProtocol) -> impl ProtocolIter {
+    pub fn proto_iter(&self, proto: &SynthesisProtocol) -> impl ProtocolIter {
         let times =
             Vec::from_iter((0..self.num_phases).map(|phase| phase as f32 / self.num_phases as f32));
         let mut epsilon_slopes = self.nn.forward(&times);

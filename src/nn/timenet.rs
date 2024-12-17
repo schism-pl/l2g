@@ -36,7 +36,7 @@ impl TimeNetConfig {
         self.child_id
     }
 
-    pub fn proto_vec(&self, proto: &SynthesisProtocol) -> impl ProtocolIter {
+    pub fn proto_iter(&self, proto: &SynthesisProtocol) -> impl ProtocolIter {
         let nn = NueralNet::from_config(self);
         nn.current_protocol(proto)
     }

@@ -6,7 +6,7 @@ use crate::nn::timenet::TimeNetConfig;
 use fll::FLLConfig;
 use microstate::MicrostateConfig;
 use serde::{Deserialize, Serialize};
-use vmmc::protocol::{ProtocolIter, ProtocolStep, SynthesisProtocol};
+use vmmc::protocol::{ProtocolIter, SynthesisProtocol};
 
 #[derive(Clone, Serialize, Deserialize)]
 enum DnaInner {
@@ -30,27 +30,17 @@ impl Dna {
         self.id
     }
 
-    // TODO: needs the protocol to have access to the vmmc
-    // pub fn protocol_iter(&self) -> StaticMegastepIter {
-    //     use DnaInner::*;
-    //     let proto_vec = match &self.inner {
-    //         TimeNet(nn, proto) => nn.proto_vec(proto),
-    //         Fll(nn, proto) => nn.proto_vec(proto),
-    //         MicroState(_config, _proto) => unimplemented!(),
-    //     };
-
-    //     StaticMegastepIter {
-    //         inner: proto_vec,
-    //         t: 0,
-    //     }
-    // }
+    // TODO: combine all 3 options into a single parameterized model
+    // 1. layer architecture
+    // 2. smoothness constraint
+    // 3. linear batching
 
     pub fn protocol_iter(&self) -> Box<dyn ProtocolIter> {
         use DnaInner::*;
         match &self.inner {
-            TimeNet(nn, proto) => Box::new(nn.proto_vec(proto)),
-            Fll(nn, proto) => Box::new(nn.proto_vec(proto)),
-            MicroState(_config, _proto) => unimplemented!(),
+            TimeNet(nn, proto) => Box::new(nn.proto_iter(proto)),
+            Fll(nn, proto) => Box::new(nn.proto_iter(proto)),
+            MicroState(config, proto) => Box::new(config.proto_iter(proto)),
         }
     }
 
@@ -69,6 +59,10 @@ impl Dna {
 
     pub fn fresh_fll(config: FLLConfig, proto: SynthesisProtocol) -> Self {
         Dna::new(0, DnaInner::Fll(config, proto))
+    }
+
+    pub fn fresh_microstate(config: MicrostateConfig, proto: SynthesisProtocol) -> Self {
+        Dna::new(0, DnaInner::MicroState(config, proto))
     }
 
     pub fn mutate(&mut self, new_id: usize) {

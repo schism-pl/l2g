@@ -1,7 +1,7 @@
 use anyhow::Result;
 use engine::EvoEngine;
 use fitness::FitnessFunc;
-use nn::fll::FLLConfig;
+use nn::microstate::MicrostateConfig;
 // use nn::{fll_temp_only::FLLTempOnlyConfig, l2g_nn::NnConfig};
 use nn::Dna;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
@@ -20,23 +20,27 @@ pub mod pruning;
 
 impl Default for EvoEngine {
     fn default() -> Self {
-        let sim_params = Default::default();
+        let sim_params: SimParams = Default::default();
         let seed = SmallRng::from_entropy().gen::<u32>();
 
-        let num_generations = 10;
-        let children_per_survivor = 5;
-        let survivors_per_generation = 3;
+        let num_generations = 3;
+        let children_per_survivor = 3;
+        let survivors_per_generation = 1;
 
-        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 50);
+        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 100);
 
         // let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
         // let config = NnConfig::new(seed, 0, 1000, 0.1);
 
-        let config = FLLConfig::new(10, 0.5);
+        // let config = FLLConfig::new(10, 0.5);
+        let shapes = sim_params.shapes.clone();
+        assert_eq!(shapes.len(), 1);
+        let config = MicrostateConfig::new(shapes[0].patches().len(), 0.5);
 
         // let init_dna = Dna::new(0, DnaInner::TimeNet(nn_config, protocol));
         // let init_dna = Dna::fresh_time_net(config, protocol);
-        let init_dna = Dna::fresh_fll(config, protocol);
+        // let init_dna = Dna::fresh_fll(config, protocol);
+        let init_dna = Dna::fresh_microstate(config, protocol);
 
         Self {
             sim_params,
