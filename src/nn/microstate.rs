@@ -83,8 +83,6 @@ impl MicroStateIter {
             .collect();
         inputs.push(t);
 
-        // println!("{:?}", inputs);
-
         // assert_eq!(inputs.len(), self.num + 1);
         // Get slopes
         let slopes = self.nn.forward(&inputs);

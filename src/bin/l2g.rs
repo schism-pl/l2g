@@ -54,6 +54,8 @@ fn main() -> anyhow::Result<()> {
         EvoEngine::default()
     };
 
+    // let init_dna = engine.init_dna();
+
     // Get default params
     // Seed the rng
     let seed = engine.seed;
@@ -67,7 +69,7 @@ fn main() -> anyhow::Result<()> {
         engine.children_per_survivor()
     );
     log::info!("Fitness Function: {:?}", engine.fitness_func);
-    log::info!("Mutation Method: {}", engine.init_dna.type_str());
+    log::info!("Mutation Method: {:?}", engine.learning_strategy);
     let ip = engine.sim_params();
     log::info!(
         "Simbox: {}x{} with {} initial particles",
@@ -75,11 +77,6 @@ fn main() -> anyhow::Result<()> {
         ip.box_height,
         ip.initial_particles
     );
-
-    // log::info!(
-    //     "Each simulation runs for {} megasteps",
-    //     engine.init_dna.num_megasteps()
-    // );
 
     // Init I/O
     log::info!("Writing output to {}", config.output_dir());

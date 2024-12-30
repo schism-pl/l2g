@@ -8,6 +8,13 @@ use microstate::MicrostateConfig;
 use serde::{Deserialize, Serialize};
 use vmmc::protocol::{ProtocolIter, SynthesisProtocol};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum LearningStrategy {
+    Timenet,
+    Fll,
+    MicroState,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 enum DnaInner {
     TimeNet(TimeNetConfig, SynthesisProtocol),

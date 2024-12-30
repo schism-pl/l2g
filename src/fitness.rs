@@ -7,7 +7,7 @@ use vmmc::vmmc::Vmmc;
 pub enum FitnessFunc {
     Random,
     PolygonSum,
-    ShapeDist 
+    ShapeDist,
 }
 
 impl FitnessFunc {
@@ -15,15 +15,15 @@ impl FitnessFunc {
         match self {
             FitnessFunc::Random => 0.5, // we don't differentiate between different simulations
             FitnessFunc::PolygonSum => calc_polygon_count(vmmc, 12) as f64,
-            FitnessFunc::ShapeDist => { 
-                let dist = calc_polygon_distribution(vmmc, 12);  //we are assigning dist
-                                                                           //to be the values of
-                                                                           //the vector
-                                                                           //"polygon_dist" from
-                                                                           //calc_polygon_distribution
+            FitnessFunc::ShapeDist => {
+                let dist = calc_polygon_distribution(vmmc, 12); //we are assigning dist
+                                                                //to be the values of
+                                                                //the vector
+                                                                //"polygon_dist" from
+                                                                //calc_polygon_distribution
                 let squares = dist[3] as f64;
                 squares
-            },
+            }
         }
     }
 }

@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use crate::fitness::FitnessFunc;
 use crate::io::{record_child, record_child_config};
-use crate::nn::Dna;
+use crate::nn::{Dna, LearningStrategy};
 use crate::pruning::prune;
 use crate::run_fresh_vmmc;
 use anyhow::Result;
@@ -10,7 +10,7 @@ use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use vmmc::protocol::ProtocolStep;
+use vmmc::protocol::{ProtocolStep, SynthesisProtocol};
 use vmmc::vmmc::Vmmc;
 use vmmc::SimParams;
 
@@ -18,8 +18,10 @@ use vmmc::SimParams;
 pub struct EvoEngine {
     pub seed: u32,
     pub sim_params: SimParams,
-    pub init_dna: Dna,
+    pub init_protocol: SynthesisProtocol,
 
+    // pub init_dna: Dna,
+    pub learning_strategy: LearningStrategy,
     pub fitness_func: FitnessFunc,
 
     pub num_generations: usize,
@@ -74,7 +76,8 @@ impl EvoEngine {
     }
 
     pub fn initial_candidates(&mut self) -> Vec<Dna> {
-        self.spawn_children(&vec![(self.init_dna.clone(), 0.)], self.generation_size())
+        let init_dna = self.init_dna();
+        self.spawn_children(&[(init_dna.clone(), 0.)], self.generation_size())
     }
 
     fn step_one(&self, dna: &Dna, rng: &mut SmallRng) -> Result<(Vec<ProtocolStep>, Vmmc)> {
