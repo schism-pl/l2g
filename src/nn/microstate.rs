@@ -21,15 +21,15 @@ impl MicrostateConfig {
     // Reusable so long as you take shape vector as argument
     // num_patches + 2 bc 0..n (n+1), and time t
     pub fn new(num_patches: usize, mutation_factor: f32) -> Self {
-        let nn = NN::new(&[num_patches + 2, 100, 2])
+        let nn = NN::new(&[num_patches + 2, 1000, 2])
             .with_learning_rate(0.1)
-            .with_hidden_type(ActivationType::Sigmoid)
-            .with_output_type(ActivationType::Linear)
+            .with_hidden_type(ActivationType::Tanh)
+            //.with_output_type(ActivationType::Linear)
             .with_regularization(Regularization::None);
         Self {
             nn,
             // num_patches,
-            mutation_factor: mutation_factor / 5.0,
+            mutation_factor: mutation_factor,
             // len,
         }
     }
@@ -86,9 +86,9 @@ impl MicroStateIter {
         // assert_eq!(inputs.len(), self.num + 1);
         // Get slopes
         let slopes = self.nn.forward(&inputs);
-
+        //println!("{:?} -> {:?}", inputs, slopes);
         assert_eq!(slopes.len(), 2); // interaction energy, chemical potential
-        (slopes[1] as f64 / 20.0, slopes[0] as f64 / 20.0)
+        ((slopes[1] / 100.0) as f64, (slopes[0] / 100.0) as f64)
         // ProtocolStep::new(slopes[1] as f64, slopes[0] as f64)
     }
 }
