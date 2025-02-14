@@ -2,20 +2,23 @@ use rand::{rngs::SmallRng, SeedableRng};
 /// Implement nueral net implementation from original paper
 use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
-use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
+use vmmc::{
+    protocol::{ProtocolIter, ProtocolStep, SynthesisProtocol},
+    vmmc::Vmmc,
+};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 // Uniquely IDs a nueral net
 // NN can be reconstructed by building nn from original set and
 // mutating it by `child_id` times
-pub struct NnConfig {
+pub struct TimeNetConfig {
     orig_seed: u32,
     child_id: u32,
     num_layers: u32,
     mutation_factor: f64,
 }
 
-impl NnConfig {
+impl TimeNetConfig {
     pub fn new(orig_seed: u32, child_id: u32, num_layers: u32, mutation_factor: f64) -> Self {
         Self {
             orig_seed,
@@ -33,9 +36,9 @@ impl NnConfig {
         self.child_id
     }
 
-    pub fn proto_vec(&self, proto: &SynthesisProtocol) -> Vec<ProtocolStep> {
+    pub fn proto_iter(&self, proto: &SynthesisProtocol) -> impl ProtocolIter {
         let nn = NueralNet::from_config(self);
-        nn.current_protocol(proto).collect()
+        nn.current_protocol(proto)
     }
 }
 
@@ -80,7 +83,7 @@ pub struct NueralNet {
 }
 
 impl NueralNet {
-    pub fn from_config(config: &NnConfig) -> Self {
+    pub fn from_config(config: &TimeNetConfig) -> Self {
         let mut rng = SmallRng::seed_from_u64(config.orig_seed as u64);
         let normal = Normal::new(0.0, 1.0).unwrap();
 
@@ -137,30 +140,28 @@ impl NueralNet {
     }
 }
 
-pub struct NnMegastepIter<'a> {
+pub struct NnMegastepIter {
     nn: NueralNet,
     t: f64,
-    protocol: &'a SynthesisProtocol,
+    protocol: SynthesisProtocol,
     ep_accum: f64,
     mu_accum: f64,
 }
 
-impl<'a> NnMegastepIter<'a> {
-    fn new(nn: NueralNet, protocol: &'a SynthesisProtocol) -> Self {
+impl NnMegastepIter {
+    fn new(nn: NueralNet, protocol: &SynthesisProtocol) -> Self {
         Self {
             nn,
             t: 0.0,
-            protocol,
+            protocol: protocol.clone(),
             ep_accum: 0.0,
             mu_accum: 0.0,
         }
     }
 }
 
-impl<'a> Iterator for NnMegastepIter<'a> {
-    type Item = ProtocolStep;
-
-    fn next(&mut self) -> Option<Self::Item> {
+impl ProtocolIter for NnMegastepIter {
+    fn next(&mut self, _vmmc: &Vmmc) -> Option<ProtocolStep> {
         if self.t >= 1.0 {
             return None;
         }
@@ -176,19 +177,8 @@ impl<'a> Iterator for NnMegastepIter<'a> {
         self.t += 1.0 / self.protocol.num_megasteps() as f64;
         Some(step)
     }
-}
 
-impl<'a> ExactSizeIterator for NnMegastepIter<'a> {
-    // We can easily calculate the remaining number of iterations.
-    fn len(&self) -> usize {
-        self.protocol.num_megasteps() - (self.t * self.protocol.num_megasteps() as f64) as usize
-    }
-}
-
-impl<'a> Peekable for NnMegastepIter<'a> {
-    type Output = ProtocolStep;
-
-    fn peek(&self) -> Self::Output {
+    fn peek(&self, _vmmc: &Vmmc) -> ProtocolStep {
         let (epsilon, mu) = self.nn.eval(self.t);
         let orig_epsilon = self.protocol.interaction_energy(self.t as usize);
         let orig_mu = self.protocol.chemical_potential(self.t as usize);
@@ -196,4 +186,37 @@ impl<'a> Peekable for NnMegastepIter<'a> {
         let interaction_energy = (orig_epsilon + epsilon + self.ep_accum).clamp(0.0, 20.0);
         ProtocolStep::new(chemical_potential, interaction_energy)
     }
+
+    fn start(&self) -> ProtocolStep {
+        let (epsilon, mu) = self.nn.eval(0.0);
+        let orig_epsilon = self.protocol.interaction_energy(0);
+        let orig_mu = self.protocol.chemical_potential(0);
+        let chemical_potential = (orig_mu + mu + self.mu_accum).clamp(-20.0, 20.0);
+        let interaction_energy = (orig_epsilon + epsilon + self.ep_accum).clamp(0.0, 20.0);
+        ProtocolStep::new(chemical_potential, interaction_energy)
+    }
+
+    fn len(&self) -> usize {
+        self.protocol.num_megasteps() - (self.t * self.protocol.num_megasteps() as f64) as usize
+    }
 }
+
+// impl<'a> ExactSizeIterator for NnMegastepIter<'a> {
+//     // We can easily calculate the remaining number of iterations.
+//     fn len(&self) -> usize {
+//         self.protocol.num_megasteps() - (self.t * self.protocol.num_megasteps() as f64) as usize
+//     }
+// }
+
+// impl<'a> Peekable for NnMegastepIter<'a> {
+//     type Output = ProtocolStep;
+
+//     fn peek(&self) -> Self::Output {
+//         let (epsilon, mu) = self.nn.eval(self.t);
+//         let orig_epsilon = self.protocol.interaction_energy(self.t as usize);
+//         let orig_mu = self.protocol.chemical_potential(self.t as usize);
+//         let chemical_potential = (orig_mu + mu + self.mu_accum).clamp(-20.0, 20.0);
+//         let interaction_energy = (orig_epsilon + epsilon + self.ep_accum).clamp(0.0, 20.0);
+//         ProtocolStep::new(chemical_potential, interaction_energy)
+//     }
+// }

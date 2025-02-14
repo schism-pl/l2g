@@ -1,28 +1,25 @@
 use std::fs::create_dir_all;
 use vmmc::{
     io::{write_geometry_png, write_protocols_png, write_stats},
+    protocol::ProtocolStep,
     vmmc::Vmmc,
 };
 
 use crate::nn::Dna;
 
-pub fn record_children(candidates: &[Dna], children: &[Vmmc], gen_idx: usize) {
-    // Dump outputs
-    for (child_idx, child) in children.iter().enumerate() {
-        let p_str = format!("./out/{:0>3}/{:0>3}", gen_idx, child_idx);
-        let out_path = std::path::Path::new(&p_str);
-        create_dir_all(out_path).unwrap();
-        write_geometry_png(child, &format!("{p_str}/geometry.png"));
-        // let nn_config = candidates[idx].nn_config();
-        let dna = &candidates[child_idx];
-        let protocol_iter = candidates[child_idx].protocol_iter();
-        let toml = toml::to_string(dna).unwrap();
-        std::fs::write(format!("{p_str}/dna.toml"), toml).expect("Unable to write file");
-        write_protocols_png(protocol_iter, &format!("{p_str}/protocols.png"));
-        write_stats(child, &format!("{p_str}/stats.txt"))
-    }
+pub fn record_child_config(p_str: &str, dna: &Dna) {
+    let out_path = std::path::Path::new(&p_str);
+    create_dir_all(out_path).unwrap();
+    let toml = toml::to_string(dna).unwrap();
+    std::fs::write(format!("{p_str}/dna.toml"), toml).expect("Unable to write file");
 }
 
+pub fn record_child(p_str: &str, child: &Vmmc, proto: Vec<ProtocolStep>) {
+    write_geometry_png(child, &format!("{p_str}/geometry.png"));
+    // let protocol_iter = dna.protocol_iter();
+    write_protocols_png(proto, &format!("{p_str}/protocols.png"));
+    write_stats(child, &format!("{p_str}/stats.txt"))
+}
 
 pub fn write_progress_png(fitnesses: &[f64], pathname: &str) {
     use plotters::prelude::*;
@@ -38,10 +35,9 @@ pub fn write_progress_png(fitnesses: &[f64], pathname: &str) {
     let mut ctx = ChartBuilder::on(&root_area)
         .set_label_area_size(LabelAreaPosition::Left, 32)
         .set_label_area_size(LabelAreaPosition::Bottom, 32)
-        .caption("Interaction Energy", ("sans-serif", 32))
+        .caption("Fitness", ("sans-serif", 32))
         .build_cartesian_2d(0..num_candidates - 1, min_fitness..max_fitness)
         .unwrap();
-
 
     ctx.configure_mesh().draw().unwrap();
 
@@ -52,14 +48,16 @@ pub fn write_progress_png(fitnesses: &[f64], pathname: &str) {
     let mut best_score_line: Vec<(i32, f64)> = Vec::new();
     for (idx, fit) in fitnesses.iter().enumerate() {
         score_line.push((idx as i32, *fit));
-        let last_score = if idx == 0 {0.0} else {best_score_line[idx-1].1};
+        let last_score = if idx == 0 {
+            0.0
+        } else {
+            best_score_line[idx - 1].1
+        };
         best_score_line.push((idx as i32, fit.max(last_score)));
     }
 
-    ctx
-        .draw_series(LineSeries::new(score_line, score_line_style))
+    ctx.draw_series(LineSeries::new(score_line, score_line_style))
         .unwrap();
-    ctx
-        .draw_series(LineSeries::new(best_score_line, best_score_line_style))
+    ctx.draw_series(LineSeries::new(best_score_line, best_score_line_style))
         .unwrap();
 }

@@ -1,18 +1,25 @@
 pub mod fll;
-pub mod fll_fixed_particle;
-pub mod l2g_nn;
+pub mod microstate;
+pub mod timenet;
 
-use crate::nn::l2g_nn::NnConfig;
+use crate::nn::timenet::TimeNetConfig;
 use fll::FLLConfig;
-use fll_fixed_particle::FLLFixedParticleConfig;
+use microstate::MicrostateConfig;
 use serde::{Deserialize, Serialize};
-use vmmc::protocol::{Peekable, ProtocolStep, SynthesisProtocol};
+use vmmc::protocol::{ProtocolIter, SynthesisProtocol};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum LearningStrategy {
+    Timenet,
+    Fll,
+    MicroState,
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 enum DnaInner {
-    TimeNet(NnConfig, SynthesisProtocol),
+    TimeNet(TimeNetConfig, SynthesisProtocol),
     Fll(FLLConfig, SynthesisProtocol),
-    FllFixedParticle(FLLFixedParticleConfig, SynthesisProtocol),
+    MicroState(MicrostateConfig, SynthesisProtocol),
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -30,30 +37,30 @@ impl Dna {
         self.id
     }
 
-    pub fn protocol_iter(&self) -> StaticMegastepIter {
-        use DnaInner::*;
-        let proto_vec = match &self.inner {
-            TimeNet(nn, proto) => nn.proto_vec(proto),
-            Fll(nn, proto) => nn.proto_vec(proto),
-            FllFixedParticle(nn, proto) => nn.proto_vec(proto),
-        };
+    // TODO: combine all 3 options into a single parameterized model
+    // 1. layer architecture
+    // 2. smoothness constraint
+    // 3. linear batching
 
-        StaticMegastepIter {
-            inner: proto_vec,
-            t: 0,
+    pub fn protocol_iter(&self) -> Box<dyn ProtocolIter> {
+        use DnaInner::*;
+        match &self.inner {
+            TimeNet(nn, proto) => Box::new(nn.proto_iter(proto)),
+            Fll(nn, proto) => Box::new(nn.proto_iter(proto)),
+            MicroState(config, proto) => Box::new(config.proto_iter(proto)),
         }
     }
 
     pub fn type_str(&self) -> &str {
         use DnaInner::*;
         match self.inner {
-            TimeNet(..) => "Time Network",
+            TimeNet(..) => "Time Network (Steve's code)",
             Fll(..) => "FLL (fixed-length linear)",
-            FllFixedParticle(..) => "FLL (fixed-length linear) with fixed particle count",
+            MicroState(..) => "Microstate + Time Network (Steve's code)",
         }
     }
 
-    pub fn fresh_time_net(nn_config: NnConfig, proto: SynthesisProtocol) -> Self {
+    pub fn fresh_time_net(nn_config: TimeNetConfig, proto: SynthesisProtocol) -> Self {
         Dna::new(0, DnaInner::TimeNet(nn_config, proto))
     }
 
@@ -61,11 +68,8 @@ impl Dna {
         Dna::new(0, DnaInner::Fll(config, proto))
     }
 
-    pub fn fresh_fll_fixed_particle(
-        config: FLLFixedParticleConfig,
-        proto: SynthesisProtocol,
-    ) -> Self {
-        Dna::new(0, DnaInner::FllFixedParticle(config, proto))
+    pub fn fresh_microstate(config: MicrostateConfig, proto: SynthesisProtocol) -> Self {
+        Dna::new(0, DnaInner::MicroState(config, proto))
     }
 
     pub fn mutate(&mut self, new_id: usize) {
@@ -75,41 +79,8 @@ impl Dna {
                 nn.set_child_id(new_id as u32);
             }
             Fll(nn, ..) => nn.mutate(),
-            FllFixedParticle(nn, ..) => nn.mutate(),
+            MicroState(nn, ..) => nn.mutate(),
         }
         self.id = new_id;
-    }
-}
-
-pub struct StaticMegastepIter {
-    inner: Vec<ProtocolStep>,
-    t: usize,
-}
-
-impl Iterator for StaticMegastepIter {
-    type Item = ProtocolStep;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.t >= self.inner.len() {
-            return None;
-        }
-        let r = self.inner[self.t].clone();
-        self.t += 1;
-        Some(r)
-    }
-}
-
-impl ExactSizeIterator for StaticMegastepIter {
-    // We can easily calculate the remaining number of iterations.
-    fn len(&self) -> usize {
-        self.inner.len() - self.t
-    }
-}
-
-impl Peekable for StaticMegastepIter {
-    type Output = ProtocolStep;
-
-    fn peek(&self) -> Self::Output {
-        self.inner[self.t].clone()
     }
 }

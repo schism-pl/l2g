@@ -5,13 +5,17 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.release-debug]
+inherits = "release"
+debug = true
+
 [[bin]]
 name = "l2g"
 path = "src/bin/l2g.rs"
 
 [[bin]]
-name = "mutation_viz"
-path = "src/bin/mutation_viz.rs"
+name = "replay"
+path = "src/bin/replay.rs"
 
 [dependencies]
 anyhow = "1.0.75" # better errors

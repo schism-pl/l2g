@@ -11,13 +11,13 @@ use rand::SeedableRng;
 use std::fs::{self, create_dir_all};
 use vmmc::cli::VmmcConfig;
 
-fn init_logging() -> anyhow::Result<()> {
+fn init_logging(output_dir: &str) -> anyhow::Result<()> {
     // env_logger::init();
     // log::set_logger(&L2G_LOGGER)?;
     // log::set_max_level(LevelFilter::Info);
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{m}\n")))
-        .build("out/output.log")?;
+        .build(format!("{output_dir}/output.log"))?;
 
     let stdout = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{m}\n")))
@@ -41,9 +41,9 @@ fn init_logging() -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
-    init_logging()?;
     // Get commandline arguments
     let config = VmmcConfig::parse();
+    init_logging(config.output_dir())?;
 
     let mut engine = if config.input() != "" {
         log::info!("Reading configuration from {}", config.input());
@@ -53,6 +53,8 @@ fn main() -> anyhow::Result<()> {
         log::info!("No configuration provided, using default config");
         EvoEngine::default()
     };
+
+    // let init_dna = engine.init_dna();
 
     // Get default params
     // Seed the rng
@@ -67,7 +69,7 @@ fn main() -> anyhow::Result<()> {
         engine.children_per_survivor()
     );
     log::info!("Fitness Function: {:?}", engine.fitness_func);
-    log::info!("Mutation Method: {}", engine.init_dna.type_str());
+    log::info!("Mutation Method: {:?}", engine.learning_strategy);
     let ip = engine.sim_params();
     log::info!(
         "Simbox: {}x{} with {} initial particles",
@@ -75,11 +77,6 @@ fn main() -> anyhow::Result<()> {
         ip.box_height,
         ip.initial_particles
     );
-    // TODO: print length of each protocol
-    // log::info!(
-    //     "Each simulation runs for {} megasteps",
-    //     ip.protocol.num_megasteps()
-    // );
 
     // Init I/O
     log::info!("Writing output to {}", config.output_dir());
@@ -90,7 +87,7 @@ fn main() -> anyhow::Result<()> {
     let toml = toml::to_string(&engine).unwrap();
     fs::write(config.toml(), toml).expect("Unable to write file");
 
-    engine.step_all(&mut rng);
+    engine.step_all_and_save(config.output_dir(), &mut rng);
 
     let fit_path = format!("{}/fitnesses.txt", config.output_dir());
     fs::write(fit_path, format!("{:?}", &engine.fitnesses)).expect("Unable to write file");

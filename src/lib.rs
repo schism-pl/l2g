@@ -1,11 +1,13 @@
 use anyhow::Result;
 use engine::EvoEngine;
 use fitness::FitnessFunc;
-use nn::fll_fixed_particle::FLLFixedParticleConfig;
-use nn::Dna;
+use nn::fll::FLLConfig;
+use nn::{microstate::MicrostateConfig, timenet::TimeNetConfig};
+// use nn::{fll_temp_only::FLLTempOnlyConfig, l2g_nn::NnConfig};
+use nn::{Dna, LearningStrategy};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use vmmc::{
-    protocol::{ProtocolIter, SynthesisProtocol},
+    protocol::{ProtocolIter, ProtocolStep, SynthesisProtocol},
     run_vmmc,
     vmmc::Vmmc,
     vmmc_from_simparams, SimParams,
@@ -17,27 +19,61 @@ pub mod io;
 pub mod nn;
 pub mod pruning;
 
+impl EvoEngine {
+    /// Default dna currently set to microstate
+    pub fn init_dna(&self) -> Dna {
+        let proto = self.init_protocol.clone();
+        let mutation_factor = 0.5;
+        // TODO: make into `from_strategy` method
+        match self.learning_strategy {
+            // TODO: parameterize by num_layers?
+            LearningStrategy::Timenet => {
+                let config = TimeNetConfig::new(self.seed, 0, 1000, mutation_factor as f64);
+                Dna::fresh_time_net(config, proto)
+            }
+            LearningStrategy::Fll => {
+                // TODO: parameterize by number of phases?
+                let num_phases = 10;
+                let config = FLLConfig::new(num_phases, mutation_factor);
+                Dna::fresh_fll(config, proto)
+            }
+            LearningStrategy::MicroState => {
+                let shapes = self.sim_params.shapes.clone();
+                assert_eq!(shapes.len(), 1);
+                let config = MicrostateConfig::new(shapes[0].patches().len(), mutation_factor);
+                Dna::fresh_microstate(config, proto)
+            }
+        }
+    }
+}
+
 impl Default for EvoEngine {
     fn default() -> Self {
-        let sim_params = Default::default();
+        let sim_params: SimParams = Default::default();
         let seed = SmallRng::from_entropy().gen::<u32>();
 
-        let num_generations =3;
+        let num_generations = 3;
         let children_per_survivor = 3;
-        let survivors_per_generation = 3;
+        let survivors_per_generation = 1;
 
-        let protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 50);
+        let init_protocol = SynthesisProtocol::flat_protocol(0.0, 10.0, 100);
 
         // let nn_config = NnConfig::new(nn_seed, 0, 1000, 0.1);
-        let config = FLLFixedParticleConfig::new(10, 5, 0.5);
+        // let config = NnConfig::new(seed, 0, 1000, 0.1);
+
+        // let config = FLLConfig::new(10, 0.5);
 
         // let init_dna = Dna::new(0, DnaInner::TimeNet(nn_config, protocol));
-        let init_dna = Dna::fresh_fll_fixed_particle(config, protocol);
+        // let init_dna = Dna::fresh_time_net(config, protocol);
+        // let init_dna = Dna::fresh_fll(config, protocol);
+        // let init_dna = Dna::fresh_microstate(config, protocol);
 
         Self {
             sim_params,
+            learning_strategy: LearningStrategy::MicroState,
             fitness_func: FitnessFunc::PolygonSum,
-            init_dna,
+            init_protocol,
+            // init_dna,
             seed,
             num_generations,
             children_per_survivor,
@@ -51,11 +87,27 @@ impl Default for EvoEngine {
 
 pub fn run_fresh_vmmc(
     sim_params: &SimParams,
-    protocol_iter: impl ProtocolIter,
+    protocol_iter: Box<dyn ProtocolIter>,
     rng: &mut SmallRng,
-) -> Vmmc {
-    let initial_interaction_energy = protocol_iter.peek().interaction_energy();
+) -> Result<(Vec<ProtocolStep>, Vmmc)> {
+    let initial_interaction_energy = protocol_iter.start().interaction_energy();
     let mut vmmc = vmmc_from_simparams(sim_params, initial_interaction_energy, rng);
-    let _: Result<()> = run_vmmc(&mut vmmc, protocol_iter, vmmc::no_callback(), rng);
-    vmmc
+    let (proto, _) = run_vmmc(&mut vmmc, protocol_iter, vmmc::no_callback(), rng)?;
+    Ok((proto, vmmc))
+}
+
+pub fn run_fresh_vmmc_to_console(
+    sim_params: &SimParams,
+    protocol_iter: Box<dyn ProtocolIter>,
+    rng: &mut SmallRng,
+) -> Result<(Vec<ProtocolStep>, Vmmc)> {
+    let initial_interaction_energy = protocol_iter.start().interaction_energy();
+    let mut vmmc = vmmc_from_simparams(sim_params, initial_interaction_energy, rng);
+    let (proto, _) = run_vmmc(
+        &mut vmmc,
+        protocol_iter,
+        Box::new(vmmc::StdCallback::new()),
+        rng,
+    )?;
+    Ok((proto, vmmc))
 }

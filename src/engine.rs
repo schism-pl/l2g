@@ -1,14 +1,16 @@
 use std::time::Instant;
 
 use crate::fitness::FitnessFunc;
-use crate::io::record_children;
-use crate::nn::Dna;
+use crate::io::{record_child, record_child_config};
+use crate::nn::{Dna, LearningStrategy};
 use crate::pruning::prune;
 use crate::run_fresh_vmmc;
+use anyhow::Result;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use vmmc::protocol::{ProtocolStep, SynthesisProtocol};
 use vmmc::vmmc::Vmmc;
 use vmmc::SimParams;
 
@@ -16,8 +18,10 @@ use vmmc::SimParams;
 pub struct EvoEngine {
     pub seed: u32,
     pub sim_params: SimParams,
-    pub init_dna: Dna,
+    pub init_protocol: SynthesisProtocol,
 
+    // pub init_dna: Dna,
+    pub learning_strategy: LearningStrategy,
     pub fitness_func: FitnessFunc,
 
     pub num_generations: usize,
@@ -72,16 +76,21 @@ impl EvoEngine {
     }
 
     pub fn initial_candidates(&mut self) -> Vec<Dna> {
-        self.spawn_children(&vec![(self.init_dna.clone(), 0.)], self.generation_size())
+        let init_dna = self.init_dna();
+        self.spawn_children(&[(init_dna.clone(), 0.)], self.generation_size())
     }
 
-    fn step_one(&self, dna: &Dna, rng: &mut SmallRng) -> Vmmc {
+    fn step_one(&self, dna: &Dna, rng: &mut SmallRng) -> Result<(Vec<ProtocolStep>, Vmmc)> {
         let protocol_iter = dna.protocol_iter();
         run_fresh_vmmc(self.sim_params(), protocol_iter, rng)
     }
 
-    // Executes a generation
-    fn step_generation(&mut self, states: &[Dna], rng: &mut SmallRng) -> Vec<Vmmc> {
+    fn step_generation_to(
+        &mut self,
+        states: &[Dna],
+        rng: &mut SmallRng,
+        output_dir: &str,
+    ) -> Vec<Vmmc> {
         let seeds: Vec<u64> = (0..states.len()).map(|_| rng.gen()).collect();
         states
             .par_iter()
@@ -89,7 +98,14 @@ impl EvoEngine {
             .map(|(idx, s)| {
                 let thread_seed = seeds[idx];
                 let mut thread_rng = SmallRng::seed_from_u64(thread_seed);
-                self.step_one(s, &mut thread_rng)
+                let p_str = format!("./{output_dir}/{:0>3}", idx);
+
+                record_child_config(&p_str, s);
+                let (proto, child) = self
+                    .step_one(s, &mut thread_rng)
+                    .expect("Simulation failed");
+                record_child(&p_str, &child, proto);
+                child
             })
             .collect()
     }
@@ -110,7 +126,7 @@ impl EvoEngine {
         log::info!("Updated genepool: {:?}\n", ids);
     }
 
-    pub fn step_all(&mut self, rng: &mut SmallRng) {
+    pub fn step_all_and_save(&mut self, output_dir: &str, rng: &mut SmallRng) {
         log::info!(
             "Creating threadpool of {} workers\n",
             self.generation_size()
@@ -130,10 +146,12 @@ impl EvoEngine {
 
             // 1.) Execute a generations worth of sims
             let start = Instant::now();
-            let children = self.step_generation(&candidates, rng);
+            let gen_dir = format!("./{output_dir}/{:0>3}", gen_idx);
+            let children = self.step_generation_to(&candidates, rng, &gen_dir);
+
             let generation_end = Instant::now();
             log::info!("Generation execution time: {:?}", generation_end - start);
-            record_children(&candidates, &children, gen_idx);
+            // record_children(output_dir, &candidates, &children, );
 
             let fitnesses = self.get_fitnesses(&children);
 
