@@ -14,6 +14,10 @@ use vmmc::protocol::{ProtocolStep, SynthesisProtocol};
 use vmmc::vmmc::Vmmc;
 use vmmc::SimParams;
 
+fn default_mutation_factor() -> f32 {
+    0.5
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct EvoEngine {
     pub seed: u32,
@@ -27,6 +31,9 @@ pub struct EvoEngine {
     pub num_generations: usize,
     pub survivors_per_generation: usize,
     pub children_per_survivor: usize,
+
+    #[serde(default="default_mutation_factor")]
+    pub mutation_factor: f32,
 
     // runtime state
     #[serde(default)]

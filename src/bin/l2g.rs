@@ -70,6 +70,7 @@ fn main() -> anyhow::Result<()> {
     );
     log::info!("Fitness Function: {:?}", engine.fitness_func);
     log::info!("Mutation Method: {:?}", engine.learning_strategy);
+    log::info!("Mutation factor: {:?}", engine.mutation_factor);
     let ip = engine.sim_params();
     log::info!(
         "Simbox: {}x{} with {} initial particles",

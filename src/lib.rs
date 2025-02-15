@@ -23,24 +23,23 @@ impl EvoEngine {
     /// Default dna currently set to microstate
     pub fn init_dna(&self) -> Dna {
         let proto = self.init_protocol.clone();
-        let mutation_factor = 0.5;
         // TODO: make into `from_strategy` method
         match self.learning_strategy {
             // TODO: parameterize by num_layers?
             LearningStrategy::Timenet => {
-                let config = TimeNetConfig::new(self.seed, 0, 1000, mutation_factor as f64);
+                let config = TimeNetConfig::new(self.seed, 0, 1000, self.mutation_factor as f64);
                 Dna::fresh_time_net(config, proto)
             }
             LearningStrategy::Fll => {
                 // TODO: parameterize by number of phases?
                 let num_phases = 10;
-                let config = FLLConfig::new(num_phases, mutation_factor);
+                let config = FLLConfig::new(num_phases, self.mutation_factor);
                 Dna::fresh_fll(config, proto)
             }
             LearningStrategy::MicroState => {
                 let shapes = self.sim_params.shapes.clone();
                 assert_eq!(shapes.len(), 1);
-                let config = MicrostateConfig::new(shapes[0].patches().len(), mutation_factor);
+                let config = MicrostateConfig::new(shapes[0].patches().len(), self.mutation_factor);
                 Dna::fresh_microstate(config, proto)
             }
         }
@@ -73,6 +72,7 @@ impl Default for EvoEngine {
             learning_strategy: LearningStrategy::MicroState,
             fitness_func: FitnessFunc::PolygonSum,
             init_protocol,
+            mutation_factor: 0.5,
             // init_dna,
             seed,
             num_generations,
