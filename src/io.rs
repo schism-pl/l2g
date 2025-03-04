@@ -1,6 +1,6 @@
 use std::fs::create_dir_all;
 use vmmc::{
-    io::{write_geometry_png, write_protocols_png, write_stats},
+    io::{write_geometry_png, write_colored_geometry_png, write_protocols_png, write_stats},
     protocol::ProtocolStep,
     vmmc::Vmmc,
 };
@@ -16,6 +16,7 @@ pub fn record_child_config(p_str: &str, dna: &Dna) {
 
 pub fn record_child(p_str: &str, child: &Vmmc, proto: Vec<ProtocolStep>) {
     write_geometry_png(child, &format!("{p_str}/geometry.png"));
+    write_colored_geometry_png(child, &format!("{p_str}/colored_geometry.png"));
     // let protocol_iter = dna.protocol_iter();
     write_protocols_png(proto, &format!("{p_str}/protocols.png"));
     write_stats(child, &format!("{p_str}/stats.txt"))
