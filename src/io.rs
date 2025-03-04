@@ -34,8 +34,8 @@ pub fn write_progress_png(fitnesses: &[f64], pathname: &str) {
     let max_fitness = fitnesses.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b)) + 10.0;
 
     let mut ctx = ChartBuilder::on(&root_area)
-        .set_label_area_size(LabelAreaPosition::Left, 32)
-        .set_label_area_size(LabelAreaPosition::Bottom, 32)
+        .set_label_area_size(LabelAreaPosition::Left, 48)
+        .set_label_area_size(LabelAreaPosition::Bottom, 48)
         .caption("Fitness", ("sans-serif", 32))
         .build_cartesian_2d(0..num_candidates - 1, min_fitness..max_fitness)
         .unwrap();
@@ -56,9 +56,17 @@ pub fn write_progress_png(fitnesses: &[f64], pathname: &str) {
         };
         best_score_line.push((idx as i32, fit.max(last_score)));
     }
+    // let shapestyle = Into::<ShapeStyle>::into(RGBColor(0xf3, 0x70, 0x21)).filled().into_dyn();
+    // let shapestyle = RGBColor(0xf3, 0x70, 0x21).filled();
+    // ctx.draw_series(LineSeries::new(score_line, score_line_style))
+    //     .unwrap();
+    // ctx.draw_series(score_line.iter().map(|point| Circle::new(point, 5, &RGBColor(0xf3, 0x70, 0x21))));
+    ctx.draw_series(
+        score_line.iter().map(|point| TriangleMarker::new(*point, 5, &RGBColor(0xf3, 0x70, 0x21))),
+    )
+    .unwrap();
 
-    ctx.draw_series(LineSeries::new(score_line, score_line_style))
-        .unwrap();
+
     ctx.draw_series(LineSeries::new(best_score_line, best_score_line_style))
         .unwrap();
 }
