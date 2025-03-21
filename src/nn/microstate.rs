@@ -6,8 +6,12 @@ use vmmc::{
     protocol::{ProtocolIter, ProtocolStep, SynthesisProtocol},
     vmmc::Vmmc,
 };
+use runnt::initialization::InitializationType;
 
 // TODO: probably don't need this many nodes in hidden layer
+// TODO: runnt fastrand => SmallRng
+// TODO: fix initialization so first protocol is always the one requested?
+// maybe try xavier to see if its reasonable?
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct MicrostateConfig {
@@ -17,6 +21,12 @@ pub struct MicrostateConfig {
     // len: usize,
 }
 
+
+
+// TODO: how to initilize network to something sane?
+// Why is fixed 0.0 weights not just the original protocol???
+// the nueral net is indeed being initialized to 0
+// where is other results coming from?
 impl MicrostateConfig {
     // Reusable so long as you take shape vector as argument
     // num_patches + 2 bc 0..n (n+1), and time t
@@ -24,8 +34,10 @@ impl MicrostateConfig {
         let nn = NN::new(&[num_patches + 2, 1000, 2])
             .with_learning_rate(0.1)
             .with_hidden_type(ActivationType::Tanh)
+            .with_initialization(InitializationType::Fixed(0.0))
             //.with_output_type(ActivationType::Linear)
             .with_regularization(Regularization::None);
+
         Self {
             nn,
             // num_patches,
@@ -48,12 +60,27 @@ impl MicrostateConfig {
     }
 }
 
+
+fn format_inputs(patch_distr: &[usize], t: f32) -> Vec<f32> {
+    let total_particles: usize = patch_distr.iter().sum();
+    let mut inputs: Vec<f32> = patch_distr
+        .iter()
+        .map(|&x| {
+            if total_particles == 0 {
+                0.0
+            } else {
+                x as f32 / total_particles as f32
+            }
+        })
+        .collect();
+    inputs.push(t);
+    inputs
+}
+
 pub struct MicroStateIter {
     nn: NN,
     t: f64,
     protocol: SynthesisProtocol,
-    ep_accum: f64,
-    mu_accum: f64,
 }
 
 impl MicroStateIter {
@@ -62,33 +89,18 @@ impl MicroStateIter {
             nn,
             t: 0.0,
             protocol: protocol.clone(),
-            ep_accum: 0.0,
-            mu_accum: 0.0,
         }
     }
 
+    // TODO: solve hidden randomness
     // inputs should be [t, p0..p_n]
     fn eval(&self, patch_distr: &[usize], t: f32) -> (f64, f64) {
         // Get particle distribution
-        let total_particles: usize = patch_distr.iter().sum();
-        let mut inputs: Vec<f32> = patch_distr
-            .iter()
-            .map(|&x| {
-                if total_particles == 0 {
-                    0.0
-                } else {
-                    x as f32 / total_particles as f32
-                }
-            })
-            .collect();
-        inputs.push(t);
-
-        // assert_eq!(inputs.len(), self.num + 1);
-        // Get slopes
-        let slopes = self.nn.forward(&inputs);
+        let inputs = format_inputs(patch_distr, t);
+        let outputs = self.nn.forward(&inputs);
         //println!("{:?} -> {:?}", inputs, slopes);
-        assert_eq!(slopes.len(), 2); // interaction energy, chemical potential
-        ((slopes[1] / 100.0) as f64, (slopes[0] / 100.0) as f64)
+        assert_eq!(outputs.len(), 2); // interaction energy, chemical potential
+        (outputs[1] as f64, outputs[0] as f64) // TODO: scale?
         // ProtocolStep::new(slopes[1] as f64, slopes[0] as f64)
     }
 }
@@ -108,16 +120,15 @@ impl ProtocolIter for MicroStateIter {
         let orig_epsilon = self.protocol.interaction_energy(self.t as usize);
         let orig_mu = self.protocol.chemical_potential(self.t as usize);
         // println!("{epsilon} {mu} {orig_epsilon} {orig_mu}");
-        self.ep_accum += epsilon;
-        self.mu_accum += mu;
-        let chemical_potential = (orig_mu + self.mu_accum).clamp(-20.0, 20.0);
-        let interaction_energy = (orig_epsilon + self.ep_accum).clamp(0.0, 20.0);
+        let chemical_potential = (orig_mu + mu).clamp(-20.0, 20.0);
+        let interaction_energy = (orig_epsilon + epsilon).clamp(0.0, 20.0);
         // println!("({chemical_potential} --- {interaction_energy})");
         let step = ProtocolStep::new(chemical_potential, interaction_energy);
         self.t += 1.0 / self.protocol.num_megasteps() as f64;
         Some(step)
     }
 
+    // TODO: which patch distribution to use for multi-morphology systems?
     fn peek(&self, vmmc: &Vmmc) -> ProtocolStep {
         let patch_distrs = calc_bond_distribution(vmmc);
         assert_eq!(patch_distrs.len(), 1);
@@ -126,8 +137,8 @@ impl ProtocolIter for MicroStateIter {
         let (epsilon, mu) = self.eval(patch_distr, self.t as f32);
         let orig_epsilon = self.protocol.interaction_energy(self.t as usize);
         let orig_mu = self.protocol.chemical_potential(self.t as usize);
-        let chemical_potential = (orig_mu + mu + self.mu_accum).clamp(-20.0, 20.0);
-        let interaction_energy = (orig_epsilon + epsilon + self.ep_accum).clamp(0.0, 20.0);
+        let chemical_potential = (orig_mu + mu).clamp(-20.0, 20.0);
+        let interaction_energy = (orig_epsilon + epsilon).clamp(0.0, 20.0);
         ProtocolStep::new(chemical_potential, interaction_energy)
     }
 
