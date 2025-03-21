@@ -117,9 +117,9 @@ impl ProtocolIter for MicroStateIter {
 
         let (epsilon, mu) = self.eval(patch_distr, self.t as f32);
 
-        let orig_epsilon = self.protocol.interaction_energy(self.t as usize);
-        let orig_mu = self.protocol.chemical_potential(self.t as usize);
-        // println!("{epsilon} {mu} {orig_epsilon} {orig_mu}");
+        let orig_epsilon = self.protocol.interaction_energy((self.t * self.protocol.num_megasteps() as f64) as usize);
+        let orig_mu = self.protocol.chemical_potential((self.t * self.protocol.num_megasteps() as f64) as usize);
+        // println!("{:?}: {epsilon} {mu} {orig_epsilon} {orig_mu}", (self.t * self.protocol.num_megasteps() as f64) as usize);
         let chemical_potential = (orig_mu + mu).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon).clamp(0.0, 20.0);
         // println!("({chemical_potential} --- {interaction_energy})");
@@ -135,8 +135,8 @@ impl ProtocolIter for MicroStateIter {
         let patch_distr = &patch_distrs[0];
 
         let (epsilon, mu) = self.eval(patch_distr, self.t as f32);
-        let orig_epsilon = self.protocol.interaction_energy(self.t as usize);
-        let orig_mu = self.protocol.chemical_potential(self.t as usize);
+        let orig_epsilon = self.protocol.interaction_energy((self.t * self.protocol.num_megasteps() as f64) as usize);
+        let orig_mu = self.protocol.chemical_potential((self.t * self.protocol.num_megasteps() as f64) as usize);
         let chemical_potential = (orig_mu + mu).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon).clamp(0.0, 20.0);
         ProtocolStep::new(chemical_potential, interaction_energy)
