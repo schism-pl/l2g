@@ -1,11 +1,12 @@
-use rand::{rngs::SmallRng, SeedableRng};
-/// Implement nueral net implementation from original paper
-use rand_distr::{Distribution, Normal};
+use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use vmmc::{
     protocol::{ProtocolIter, ProtocolStep, SynthesisProtocol},
     vmmc::Vmmc,
+    Prng,
 };
+
+// TODO: no more fastrand
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 // Uniquely IDs a nueral net
@@ -65,13 +66,13 @@ impl HiddenLayer {
         (t * self.input_weight + self.bias).tanh()
     }
 
-    pub fn mutate(&mut self, mag: f64, rng: &mut SmallRng) {
-        let normal = Normal::new(0.0, mag).unwrap();
+    pub fn mutate(&mut self, mag: f64, _rng: &mut Prng) {
+        // let normal = Normal::new(0.0, mag).unwrap();
 
-        self.input_weight += normal.sample(rng);
-        self.epsilon_weight += normal.sample(rng);
-        self.mu_weight += normal.sample(rng);
-        self.bias += normal.sample(rng);
+        self.input_weight += (fastrand::f64() * 2.0 - 1.0) * mag;
+        self.epsilon_weight += (fastrand::f64() * 2.0 - 1.0) * mag;
+        self.mu_weight += (fastrand::f64() * 2.0 - 1.0) * mag;
+        self.bias += (fastrand::f64() * 2.0 - 1.0) * mag;
     }
 }
 
@@ -79,21 +80,21 @@ impl HiddenLayer {
 pub struct NueralNet {
     layers: Vec<HiddenLayer>,
     mutation_factor: f64,
-    rng: SmallRng,
+    rng: Prng,
 }
 
 impl NueralNet {
     pub fn from_config(config: &TimeNetConfig) -> Self {
-        let mut rng = SmallRng::seed_from_u64(config.orig_seed as u64);
-        let normal = Normal::new(0.0, 1.0).unwrap();
+        let rng = Prng::seed_from_u64(config.orig_seed as u64);
+        // let normal = Normal::new(0.0, 1.0).unwrap();
 
         let mut layers = Vec::new();
 
         for _ in 0..config.num_layers {
-            let iw = normal.sample(&mut rng);
-            let epsilon = normal.sample(&mut rng);
-            let mu = normal.sample(&mut rng);
-            let bias = normal.sample(&mut rng);
+            let iw = fastrand::f64() * 2.0 - 1.0;
+            let epsilon = fastrand::f64() * 2.0 - 1.0;
+            let mu = fastrand::f64() * 2.0 - 1.0;
+            let bias = fastrand::f64() * 2.0 - 1.0;
             let layer = HiddenLayer::new(iw, epsilon, mu, bias);
             layers.push(layer);
         }

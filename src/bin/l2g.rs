@@ -6,10 +6,10 @@ use log4rs::append::console::{ConsoleAppender, Target};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
-use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use std::fs::{self, create_dir_all};
 use vmmc::cli::VmmcConfig;
+use vmmc::Prng;
 
 fn init_logging(output_dir: &str) -> anyhow::Result<()> {
     // env_logger::init();
@@ -60,7 +60,7 @@ fn main() -> anyhow::Result<()> {
     // Seed the rng
     let seed = engine.seed;
     log::info!("Using seed = {:x?}", seed);
-    let mut rng = SmallRng::seed_from_u64(seed as u64);
+    let mut rng = Prng::seed_from_u64(seed as u64);
 
     log::info!(
         "Executing {} generations, with {} survivors per generation and {} children per survivor",

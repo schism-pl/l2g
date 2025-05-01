@@ -1,9 +1,9 @@
 use l2g::engine::EvoEngine;
 use l2g::nn::Dna;
 use l2g::run_fresh_vmmc_to_console;
-use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use std::fs;
+use vmmc::Prng;
 
 // fn init_logging(output_dir: &str) -> anyhow::Result<()> {
 //     // env_logger::init();
@@ -49,7 +49,7 @@ fn main() -> anyhow::Result<()> {
     let dna: Dna = toml::from_str(&contents)?;
 
     let seed = engine.seed;
-    let mut rng = SmallRng::seed_from_u64(seed as u64);
+    let mut rng = Prng::seed_from_u64(seed as u64);
 
     let protocol_iter = dna.protocol_iter();
     let _ = run_fresh_vmmc_to_console(engine.sim_params(), protocol_iter, &mut rng);

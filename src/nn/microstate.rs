@@ -1,3 +1,4 @@
+use runnt::initialization::InitializationType;
 /// Implement microstate NN + TimeNet from original paper
 use runnt::{activation::ActivationType, nn::NN, regularization::Regularization};
 use serde::{Deserialize, Serialize};
@@ -6,7 +7,6 @@ use vmmc::{
     protocol::{ProtocolIter, ProtocolStep, SynthesisProtocol},
     vmmc::Vmmc,
 };
-use runnt::initialization::InitializationType;
 
 // TODO: probably don't need this many nodes in hidden layer
 // TODO: runnt fastrand => SmallRng
@@ -20,8 +20,6 @@ pub struct MicrostateConfig {
     mutation_factor: f32,
     // len: usize,
 }
-
-
 
 // TODO: how to initilize network to something sane?
 // Why is fixed 0.0 weights not just the original protocol???
@@ -59,7 +57,6 @@ impl MicrostateConfig {
         MicroStateIter::new(self.nn.clone(), proto)
     }
 }
-
 
 fn format_inputs(patch_distr: &[usize], t: f32) -> Vec<f32> {
     let total_particles: usize = patch_distr.iter().sum();
@@ -101,7 +98,7 @@ impl MicroStateIter {
         //println!("{:?} -> {:?}", inputs, slopes);
         assert_eq!(outputs.len(), 2); // interaction energy, chemical potential
         (outputs[1] as f64, outputs[0] as f64) // TODO: scale?
-        // ProtocolStep::new(slopes[1] as f64, slopes[0] as f64)
+                                               // ProtocolStep::new(slopes[1] as f64, slopes[0] as f64)
     }
 }
 
@@ -117,8 +114,12 @@ impl ProtocolIter for MicroStateIter {
 
         let (epsilon, mu) = self.eval(patch_distr, self.t as f32);
 
-        let orig_epsilon = self.protocol.interaction_energy((self.t * self.protocol.num_megasteps() as f64) as usize);
-        let orig_mu = self.protocol.chemical_potential((self.t * self.protocol.num_megasteps() as f64) as usize);
+        let orig_epsilon = self
+            .protocol
+            .interaction_energy((self.t * self.protocol.num_megasteps() as f64) as usize);
+        let orig_mu = self
+            .protocol
+            .chemical_potential((self.t * self.protocol.num_megasteps() as f64) as usize);
         // println!("{:?}: {epsilon} {mu} {orig_epsilon} {orig_mu}", (self.t * self.protocol.num_megasteps() as f64) as usize);
         let chemical_potential = (orig_mu + mu).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon).clamp(0.0, 20.0);
@@ -135,8 +136,12 @@ impl ProtocolIter for MicroStateIter {
         let patch_distr = &patch_distrs[0];
 
         let (epsilon, mu) = self.eval(patch_distr, self.t as f32);
-        let orig_epsilon = self.protocol.interaction_energy((self.t * self.protocol.num_megasteps() as f64) as usize);
-        let orig_mu = self.protocol.chemical_potential((self.t * self.protocol.num_megasteps() as f64) as usize);
+        let orig_epsilon = self
+            .protocol
+            .interaction_energy((self.t * self.protocol.num_megasteps() as f64) as usize);
+        let orig_mu = self
+            .protocol
+            .chemical_potential((self.t * self.protocol.num_megasteps() as f64) as usize);
         let chemical_potential = (orig_mu + mu).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon).clamp(0.0, 20.0);
         ProtocolStep::new(chemical_potential, interaction_energy)

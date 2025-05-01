@@ -5,13 +5,14 @@ use nn::fll::FLLConfig;
 use nn::{microstate::MicrostateConfig, timenet::TimeNetConfig};
 // use nn::{fll_temp_only::FLLTempOnlyConfig, l2g_nn::NnConfig};
 use nn::{Dna, LearningStrategy};
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng};
 use vmmc::{
     protocol::{ProtocolIter, ProtocolStep, SynthesisProtocol},
     run_vmmc,
     vmmc::Vmmc,
-    vmmc_from_simparams, SimParams,
+    vmmc_from_simparams, Prng, SimParams,
 };
+// use rand_core::SeedableRng;
 
 pub mod engine;
 pub mod fitness;
@@ -49,7 +50,7 @@ impl EvoEngine {
 impl Default for EvoEngine {
     fn default() -> Self {
         let sim_params: SimParams = Default::default();
-        let seed = SmallRng::from_entropy().gen::<u32>();
+        let seed = Prng::from_os_rng().random::<u32>();
 
         let num_generations = 3;
         let children_per_survivor = 3;
@@ -88,7 +89,7 @@ impl Default for EvoEngine {
 pub fn run_fresh_vmmc(
     sim_params: &SimParams,
     protocol_iter: Box<dyn ProtocolIter>,
-    rng: &mut SmallRng,
+    rng: &mut Prng,
 ) -> Result<(Vec<ProtocolStep>, Vmmc)> {
     let initial_interaction_energy = protocol_iter.start().interaction_energy();
     let mut vmmc = vmmc_from_simparams(sim_params, initial_interaction_energy, rng);
@@ -99,7 +100,7 @@ pub fn run_fresh_vmmc(
 pub fn run_fresh_vmmc_to_console(
     sim_params: &SimParams,
     protocol_iter: Box<dyn ProtocolIter>,
-    rng: &mut SmallRng,
+    rng: &mut Prng,
 ) -> Result<(Vec<ProtocolStep>, Vmmc)> {
     let initial_interaction_energy = protocol_iter.start().interaction_energy();
     let mut vmmc = vmmc_from_simparams(sim_params, initial_interaction_energy, rng);

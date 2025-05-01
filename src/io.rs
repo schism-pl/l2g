@@ -1,6 +1,6 @@
 use std::fs::create_dir_all;
 use vmmc::{
-    io::{write_geometry_png, write_colored_geometry_png, write_protocols_png, write_stats},
+    io::{write_colored_geometry_png, write_geometry_png, write_protocols_png, write_stats},
     protocol::ProtocolStep,
     vmmc::Vmmc,
 };
@@ -42,7 +42,7 @@ pub fn write_progress_png(fitnesses: &[f64], pathname: &str) {
 
     ctx.configure_mesh().draw().unwrap();
 
-    let score_line_style = RGBColor(0xf3, 0x70, 0x21).stroke_width(2);
+    // let score_line_style = RGBColor(0xf3, 0x70, 0x21).stroke_width(2);
     let best_score_line_style = RGBColor(0x09, 0x61, 0x91).stroke_width(2);
 
     let mut score_line = Vec::new();
@@ -62,10 +62,11 @@ pub fn write_progress_png(fitnesses: &[f64], pathname: &str) {
     //     .unwrap();
     // ctx.draw_series(score_line.iter().map(|point| Circle::new(point, 5, &RGBColor(0xf3, 0x70, 0x21))));
     ctx.draw_series(
-        score_line.iter().map(|point| TriangleMarker::new(*point, 5, &RGBColor(0xf3, 0x70, 0x21))),
+        score_line
+            .iter()
+            .map(|point| TriangleMarker::new(*point, 5, &RGBColor(0xf3, 0x70, 0x21))),
     )
     .unwrap();
-
 
     ctx.draw_series(LineSeries::new(best_score_line, best_score_line_style))
         .unwrap();
