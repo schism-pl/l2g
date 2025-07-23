@@ -38,9 +38,7 @@ impl EvoEngine {
                 Dna::fresh_fll(config, proto)
             }
             LearningStrategy::MicroState => {
-                let shapes = self.sim_params.shapes.clone();
-                assert_eq!(shapes.len(), 1);
-                let config = MicrostateConfig::new(shapes[0].patches().len(), self.mutation_factor);
+                let config = MicrostateConfig::new(&self.sim_params.shapes, self.mutation_factor);
                 Dna::fresh_microstate(config, proto)
             }
         }

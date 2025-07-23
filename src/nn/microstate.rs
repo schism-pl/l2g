@@ -2,6 +2,7 @@ use runnt::initialization::InitializationType;
 /// Implement microstate NN + TimeNet from original paper
 use runnt::{activation::ActivationType, nn::NN, regularization::Regularization};
 use serde::{Deserialize, Serialize};
+use vmmc::morphology::Morphology;
 use vmmc::{
     polygons::calc_bond_distribution,
     protocol::{ProtocolIter, ProtocolStep, SynthesisProtocol},
@@ -28,8 +29,10 @@ pub struct MicrostateConfig {
 impl MicrostateConfig {
     // Reusable so long as you take shape vector as argument
     // num_patches + 2 bc 0..n (n+1), and time t
-    pub fn new(num_patches: usize, mutation_factor: f32) -> Self {
-        let nn = NN::new(&[num_patches + 2, 1000, 2])
+    pub fn new(shapes: &[Morphology], mutation_factor: f32) -> Self {
+        // for each shape, get num patches + 1 and sum them
+        let num_patches = shapes.iter().map(|s| s.patches().len() + 1).sum::<usize>() + 1;
+        let nn = NN::new(&[num_patches, 1000, 2])
             .with_learning_rate(0.1)
             .with_hidden_type(ActivationType::Tanh)
             .with_initialization(InitializationType::Fixed(0.0))
@@ -58,9 +61,9 @@ impl MicrostateConfig {
     }
 }
 
-fn format_inputs(patch_distr: &[usize], t: f32) -> Vec<f32> {
+fn format_inputs_for_one(patch_distr: &[usize]) -> Vec<f32> {
     let total_particles: usize = patch_distr.iter().sum();
-    let mut inputs: Vec<f32> = patch_distr
+    patch_distr
         .iter()
         .map(|&x| {
             if total_particles == 0 {
@@ -69,7 +72,14 @@ fn format_inputs(patch_distr: &[usize], t: f32) -> Vec<f32> {
                 x as f32 / total_particles as f32
             }
         })
-        .collect();
+        .collect()
+}
+
+fn format_inputs(patch_distrs: &[Vec<usize>], t: f32) -> Vec<f32> {
+    let mut inputs = patch_distrs
+        .iter()
+        .flat_map(|d| format_inputs_for_one(d))
+        .collect::<Vec<_>>();
     inputs.push(t);
     inputs
 }
@@ -91,14 +101,13 @@ impl MicroStateIter {
 
     // TODO: solve hidden randomness
     // inputs should be [t, p0..p_n]
-    fn eval(&self, patch_distr: &[usize], t: f32) -> (f64, f64) {
+    fn eval(&self, patch_distrs: &[Vec<usize>], t: f32) -> (f64, f64) {
         // Get particle distribution
-        let inputs = format_inputs(patch_distr, t);
+        let inputs = format_inputs(patch_distrs, t);
         let outputs = self.nn.forward(&inputs);
         //println!("{:?} -> {:?}", inputs, slopes);
         assert_eq!(outputs.len(), 2); // interaction energy, chemical potential
         (outputs[1] as f64, outputs[0] as f64) // TODO: scale?
-                                               // ProtocolStep::new(slopes[1] as f64, slopes[0] as f64)
     }
 }
 
@@ -109,10 +118,8 @@ impl ProtocolIter for MicroStateIter {
         }
 
         let patch_distrs = calc_bond_distribution(vmmc);
-        assert_eq!(patch_distrs.len(), 1);
-        let patch_distr = &patch_distrs[0];
 
-        let (epsilon, mu) = self.eval(patch_distr, self.t as f32);
+        let (epsilon, mu) = self.eval(&patch_distrs, self.t as f32);
 
         let orig_epsilon = self
             .protocol
@@ -132,10 +139,8 @@ impl ProtocolIter for MicroStateIter {
     // TODO: which patch distribution to use for multi-morphology systems?
     fn peek(&self, vmmc: &Vmmc) -> ProtocolStep {
         let patch_distrs = calc_bond_distribution(vmmc);
-        assert_eq!(patch_distrs.len(), 1);
-        let patch_distr = &patch_distrs[0];
 
-        let (epsilon, mu) = self.eval(patch_distr, self.t as f32);
+        let (epsilon, mu) = self.eval(&patch_distrs, self.t as f32);
         let orig_epsilon = self
             .protocol
             .interaction_energy((self.t * self.protocol.num_megasteps() as f64) as usize);
