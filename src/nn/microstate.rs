@@ -42,7 +42,7 @@ impl MicrostateConfig {
         Self {
             nn,
             // num_patches,
-            mutation_factor: mutation_factor,
+            mutation_factor,
             // len,
         }
     }

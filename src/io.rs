@@ -64,7 +64,7 @@ pub fn write_progress_png(fitnesses: &[f64], pathname: &str) {
     ctx.draw_series(
         score_line
             .iter()
-            .map(|point| TriangleMarker::new(*point, 5, &RGBColor(0xf3, 0x70, 0x21))),
+            .map(|point| TriangleMarker::new(*point, 5, RGBColor(0xf3, 0x70, 0x21))),
     )
     .unwrap();
 
