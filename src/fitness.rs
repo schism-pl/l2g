@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use vmmc::particle::IsParticle;
 use vmmc::polygons::calc_polygon_count;
 use vmmc::polygons::calc_polygon_distribution;
+use vmmc::polygons::calc_unitcells;
+use vmmc::tilings::tiling_from_str;
+use vmmc::tilings::UnitCell;
 use vmmc::vmmc::Vmmc;
 use vmmc::Prng;
 
@@ -16,6 +19,8 @@ pub enum FitnessFunc {
     ShapeDist,
     // ideal matrix for 2-vertex bond orders
     BondOrder(BondOrderMatrix),
+    // target unit cell structure
+    Unitcell(String),
 }
 
 impl FitnessFunc {
@@ -40,6 +45,12 @@ impl FitnessFunc {
                 } else {
                     2.0 - dist // 2.0 is the max distance, so we subtract it from 2.0 so smaller dist = better fitness
                 }
+            }
+            FitnessFunc::Unitcell(tiling_string) => {
+                // Convert string to UnitCell and count instances
+                let unitcell = tiling_from_str(tiling_string).expect("Invalid tiling string");
+                let calced_unitcells = calc_unitcells(vmmc, 12, &unitcell);
+                calced_unitcells.len() as f64
             }
         }
     }
