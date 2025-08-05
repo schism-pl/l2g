@@ -69,7 +69,7 @@ impl Default for EvoEngine {
         Self {
             sim_params,
             learning_strategy: LearningStrategy::MicroState,
-            fitness_func: FitnessFunc::BondOrder(((3, 1), (2, 3))),
+            fitness_func: FitnessFunc::Unitcell("4.4.4.4".to_string()),
             init_protocol,
             mutation_factor: 0.5,
             // init_dna,

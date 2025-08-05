@@ -5,7 +5,6 @@ use vmmc::polygons::calc_polygon_count;
 use vmmc::polygons::calc_polygon_distribution;
 use vmmc::polygons::calc_unitcells;
 use vmmc::tilings::tiling_from_str;
-use vmmc::tilings::UnitCell;
 use vmmc::vmmc::Vmmc;
 use vmmc::Prng;
 
