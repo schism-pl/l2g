@@ -101,6 +101,17 @@ impl EvoEngine {
         run_fresh_vmmc(self.sim_params(), protocol_iter, rng)
     }
 
+    fn simulate_state(&self, state: &Dna, thread_seed: u64, output_path: &str) -> Vmmc {
+        let mut thread_rng = Prng::seed_from_u64(thread_seed);
+        
+        record_child_config(output_path, state);
+        let (proto, child) = self
+            .step_one(state, &mut thread_rng)
+            .expect("Simulation failed");
+        record_child(output_path, &child, proto);
+        child
+    }
+
     fn step_generation_to(
         &mut self,
         states: &[Dna],
@@ -113,15 +124,8 @@ impl EvoEngine {
             .enumerate()
             .map(|(idx, s)| {
                 let thread_seed = seeds[idx];
-                let mut thread_rng = Prng::seed_from_u64(thread_seed);
                 let p_str = format!("./{output_dir}/{:0>3}", idx);
-
-                record_child_config(&p_str, s);
-                let (proto, child) = self
-                    .step_one(s, &mut thread_rng)
-                    .expect("Simulation failed");
-                record_child(&p_str, &child, proto);
-                child
+                self.simulate_state(s, thread_seed, &p_str)
             })
             .collect()
     }
