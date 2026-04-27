@@ -43,21 +43,29 @@ impl TimeNetConfig {
     }
 }
 
-// architecture = 1 input, 1000 hidden layers of 1 node each, and 2 outputs (mu and epsilon)
+// architecture = 1 input, 1000 hidden layers of 1 node each, and 3 outputs (mu, epsilon, pressure)
 #[derive(Clone, Debug)]
 pub struct HiddenLayer {
     input_weight: f64,
     epsilon_weight: f64,
     mu_weight: f64,
+    pressure_weight: f64,
     bias: f64,
 }
 
 impl HiddenLayer {
-    pub fn new(input_weight: f64, epsilon_weight: f64, mu_weight: f64, bias: f64) -> Self {
+    pub fn new(
+        input_weight: f64,
+        epsilon_weight: f64,
+        mu_weight: f64,
+        pressure_weight: f64,
+        bias: f64,
+    ) -> Self {
         Self {
             input_weight,
             epsilon_weight,
             mu_weight,
+            pressure_weight,
             bias,
         }
     }
@@ -67,11 +75,10 @@ impl HiddenLayer {
     }
 
     pub fn mutate(&mut self, mag: f64, _rng: &mut Prng) {
-        // let normal = Normal::new(0.0, mag).unwrap();
-
         self.input_weight += (fastrand::f64() * 2.0 - 1.0) * mag;
         self.epsilon_weight += (fastrand::f64() * 2.0 - 1.0) * mag;
         self.mu_weight += (fastrand::f64() * 2.0 - 1.0) * mag;
+        self.pressure_weight += (fastrand::f64() * 2.0 - 1.0) * mag;
         self.bias += (fastrand::f64() * 2.0 - 1.0) * mag;
     }
 }
@@ -94,8 +101,9 @@ impl NueralNet {
             let iw = fastrand::f64() * 2.0 - 1.0;
             let epsilon = fastrand::f64() * 2.0 - 1.0;
             let mu = fastrand::f64() * 2.0 - 1.0;
+            let pressure = fastrand::f64() * 2.0 - 1.0;
             let bias = fastrand::f64() * 2.0 - 1.0;
-            let layer = HiddenLayer::new(iw, epsilon, mu, bias);
+            let layer = HiddenLayer::new(iw, epsilon, mu, pressure, bias);
             layers.push(layer);
         }
 
@@ -113,21 +121,27 @@ impl NueralNet {
     }
 
     // t is in [0; 1.0]. Represents current time / total time of simulation
-    pub fn eval(&self, t: f64) -> (f64, f64) {
+    pub fn eval(&self, t: f64) -> (f64, f64, f64) {
+        let n = self.layers.len() as f64;
         let epsilon = self
             .layers
             .iter()
             .map(|l| l.eval(t) * l.epsilon_weight)
             .sum::<f64>()
-            / self.layers.len() as f64;
+            / n;
         let mu = self
             .layers
             .iter()
             .map(|l| l.eval(t) * l.mu_weight)
             .sum::<f64>()
-            / self.layers.len() as f64;
-        // println!("nn eval {epsilon} {mu}");
-        (epsilon, mu)
+            / n;
+        let pressure = self
+            .layers
+            .iter()
+            .map(|l| l.eval(t) * l.pressure_weight)
+            .sum::<f64>()
+            / n;
+        (epsilon, mu, pressure)
     }
 
     pub fn mutate(&mut self) {
@@ -147,6 +161,7 @@ pub struct NnMegastepIter {
     protocol: SynthesisProtocol,
     ep_accum: f64,
     mu_accum: f64,
+    pressure_accum: f64,
 }
 
 impl NnMegastepIter {
@@ -157,6 +172,7 @@ impl NnMegastepIter {
             protocol: protocol.clone(),
             ep_accum: 0.0,
             mu_accum: 0.0,
+            pressure_accum: 0.0,
         }
     }
 }
@@ -167,50 +183,75 @@ impl ProtocolIter for NnMegastepIter {
             return None;
         }
 
-        let (epsilon, mu) = self.nn.eval(self.t);
+        let (epsilon, mu, pressure) = self.nn.eval(self.t);
         let t_idx = (self.t * self.protocol.num_megasteps() as f64) as usize;
         let orig_epsilon = self.protocol.interaction_energy(t_idx);
         let orig_mu = self.protocol.chemical_potential(t_idx);
         self.ep_accum += epsilon;
         self.mu_accum += mu;
+        self.pressure_accum += pressure;
         let chemical_potential = (orig_mu + self.mu_accum).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + self.ep_accum).clamp(0.0, 20.0);
+        let pressure_x = self
+            .protocol
+            .pressure_x(t_idx)
+            .map(|p| (p + self.pressure_accum).clamp(-20.0, 20.0));
+        let pressure_y = self
+            .protocol
+            .pressure_y(t_idx)
+            .map(|p| (p + self.pressure_accum).clamp(-20.0, 20.0));
         let step = ProtocolStep::new(
             chemical_potential,
             interaction_energy,
-            self.protocol.pressure_x(t_idx),
-            self.protocol.pressure_y(t_idx),
+            pressure_x,
+            pressure_y,
         );
         self.t += 1.0 / self.protocol.num_megasteps() as f64;
         Some(step)
     }
 
     fn peek(&self, _vmmc: &Vmmc) -> ProtocolStep {
-        let (epsilon, mu) = self.nn.eval(self.t);
+        let (epsilon, mu, pressure) = self.nn.eval(self.t);
         let t_idx = (self.t * self.protocol.num_megasteps() as f64) as usize;
         let orig_epsilon = self.protocol.interaction_energy(t_idx);
         let orig_mu = self.protocol.chemical_potential(t_idx);
         let chemical_potential = (orig_mu + mu + self.mu_accum).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon + self.ep_accum).clamp(0.0, 20.0);
+        let pressure_x = self
+            .protocol
+            .pressure_x(t_idx)
+            .map(|p| (p + pressure + self.pressure_accum).clamp(-20.0, 20.0));
+        let pressure_y = self
+            .protocol
+            .pressure_y(t_idx)
+            .map(|p| (p + pressure + self.pressure_accum).clamp(-20.0, 20.0));
         ProtocolStep::new(
             chemical_potential,
             interaction_energy,
-            self.protocol.pressure_x(t_idx),
-            self.protocol.pressure_y(t_idx),
+            pressure_x,
+            pressure_y,
         )
     }
 
     fn start(&self) -> ProtocolStep {
-        let (epsilon, mu) = self.nn.eval(0.0);
+        let (epsilon, mu, pressure) = self.nn.eval(0.0);
         let orig_epsilon = self.protocol.interaction_energy(0);
         let orig_mu = self.protocol.chemical_potential(0);
         let chemical_potential = (orig_mu + mu + self.mu_accum).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon + self.ep_accum).clamp(0.0, 20.0);
+        let pressure_x = self
+            .protocol
+            .pressure_x(0)
+            .map(|p| (p + pressure + self.pressure_accum).clamp(-20.0, 20.0));
+        let pressure_y = self
+            .protocol
+            .pressure_y(0)
+            .map(|p| (p + pressure + self.pressure_accum).clamp(-20.0, 20.0));
         ProtocolStep::new(
             chemical_potential,
             interaction_energy,
-            self.protocol.pressure_x(0),
-            self.protocol.pressure_y(0),
+            pressure_x,
+            pressure_y,
         )
     }
 
