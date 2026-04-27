@@ -1,5 +1,6 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use vmmc::packing_fraction;
 use vmmc::particle::IsParticle;
 use vmmc::polygons::calc_polygon_count;
 use vmmc::polygons::calc_polygon_distribution;
@@ -15,18 +16,24 @@ type NormalizedBondOrderMatrix = ((f64, f64), (f64, f64));
 pub enum FitnessFunc {
     Random,
     PolygonSum,
+    PolygonDensity,
     ShapeDist,
     // ideal matrix for 2-vertex bond orders
     BondOrder(BondOrderMatrix),
     // target unit cell structure
     Unitcell(String),
+    UnitcellDensity(String),
 }
 
 impl FitnessFunc {
     pub fn eval(&self, vmmc: &Vmmc, rng: &mut Prng) -> f64 {
         match self {
-            FitnessFunc::Random => rng.random(), // we don't differentiate between different simulations
+            FitnessFunc::Random => rng.random(),
             FitnessFunc::PolygonSum => calc_polygon_count(vmmc, 12) as f64,
+            FitnessFunc::PolygonDensity => {
+                let pf = packing_fraction(vmmc.particles().num_particles(), vmmc.simbox().volume());
+                calc_polygon_count(vmmc, 12) as f64 * pf
+            }
             FitnessFunc::ShapeDist => {
                 //we are assigning dist to be the values of the vector "polygon_dist" from calc_polygon_distribution
                 let dist = calc_polygon_distribution(vmmc, 12);
@@ -46,10 +53,14 @@ impl FitnessFunc {
                 }
             }
             FitnessFunc::Unitcell(tiling_string) => {
-                // Convert string to UnitCell and count instances
                 let unitcell = tiling_from_str(tiling_string).expect("Invalid tiling string");
-                let calced_unitcells = calc_unitcells(vmmc, 12, &unitcell);
-                calced_unitcells.len() as f64
+                calc_unitcells(vmmc, 12, &unitcell).len() as f64
+            }
+            FitnessFunc::UnitcellDensity(tiling_string) => {
+                let unitcell = tiling_from_str(tiling_string).expect("Invalid tiling string");
+                let count = calc_unitcells(vmmc, 12, &unitcell).len() as f64;
+                let pf = packing_fraction(vmmc.particles().num_particles(), vmmc.simbox().volume());
+                count * pf
             }
         }
     }

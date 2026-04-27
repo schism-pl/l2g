@@ -8,7 +8,7 @@ use vmmc::{
     vmmc::Vmmc,
 };
 
-// TODO: fixed at self.num_phases,self.num_phases,self.num_phases*2 architecture
+// TODO: fixed at self.num_phases,self.num_phases,self.num_phases*3 architecture
 // TODO: only uses protocol for initial info
 // TODO: randomness here is not reproducible
 
@@ -21,7 +21,7 @@ pub struct FLLConfig {
 
 impl FLLConfig {
     pub fn new(num_phases: usize, mutation_factor: f32) -> Self {
-        let nn = NN::new(&[num_phases, num_phases, num_phases * 2])
+        let nn = NN::new(&[num_phases, num_phases, num_phases * 3])
             .with_learning_rate(0.1)
             .with_hidden_type(ActivationType::Sigmoid)
             .with_output_type(ActivationType::Linear)
@@ -46,10 +46,14 @@ impl FLLConfig {
         let times =
             Vec::from_iter((0..self.num_phases).map(|phase| phase as f32 / self.num_phases as f32));
         let mut epsilon_slopes = self.nn.forward(&times);
+        let pressure_slopes = epsilon_slopes.split_off(self.num_phases * 2);
         let mu_slopes = epsilon_slopes.split_off(self.num_phases);
 
         let mut epsilon = proto.interaction_energy(0);
         let mut mu = proto.chemical_potential(0);
+        let base_pressure_x = proto.pressure_x(0);
+        let base_pressure_y = proto.pressure_y(0);
+        let mut pressure_accum: f64 = 0.0;
 
         let mut steps = Vec::new();
         let phase_len = proto.len() / self.num_phases;
@@ -58,11 +62,17 @@ impl FLLConfig {
         for phase in 0..self.num_phases {
             let epsilon_delta = epsilon_slopes[phase] as f64 / phase_len as f64;
             let mu_delta = mu_slopes[phase] as f64 / phase_len as f64;
+            let pressure_delta = pressure_slopes[phase] as f64 / phase_len as f64;
             for _ in 0..phase_len {
-                let step = ProtocolStep::new(mu, epsilon);
+                let pressure_x = base_pressure_x
+                    .map(|p| (p + pressure_accum).clamp(-20.0, 20.0));
+                let pressure_y = base_pressure_y
+                    .map(|p| (p + pressure_accum).clamp(-20.0, 20.0));
+                let step = ProtocolStep::new(mu, epsilon, pressure_x, pressure_y);
                 steps.push(step);
                 epsilon += epsilon_delta;
                 mu += mu_delta;
+                pressure_accum += pressure_delta;
             }
         }
 
