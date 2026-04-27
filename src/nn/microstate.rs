@@ -131,7 +131,7 @@ impl ProtocolIter for MicroStateIter {
         let chemical_potential = (orig_mu + mu).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon).clamp(0.0, 20.0);
         // println!("({chemical_potential} --- {interaction_energy})");
-        let step = ProtocolStep::new(chemical_potential, interaction_energy);
+        let step = ProtocolStep::new(chemical_potential, interaction_energy, None, None);
         self.t += 1.0 / self.protocol.num_megasteps() as f64;
         Some(step)
     }
@@ -149,7 +149,7 @@ impl ProtocolIter for MicroStateIter {
             .chemical_potential((self.t * self.protocol.num_megasteps() as f64) as usize);
         let chemical_potential = (orig_mu + mu).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon).clamp(0.0, 20.0);
-        ProtocolStep::new(chemical_potential, interaction_energy)
+        ProtocolStep::new(chemical_potential, interaction_energy, None, None)
     }
 
     fn start(&self) -> ProtocolStep {
@@ -157,7 +157,7 @@ impl ProtocolIter for MicroStateIter {
         let orig_mu = self.protocol.chemical_potential(0);
         let chemical_potential = (orig_mu).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon).clamp(0.0, 20.0);
-        ProtocolStep::new(chemical_potential, interaction_energy)
+        ProtocolStep::new(chemical_potential, interaction_energy, None, None)
     }
 
     fn len(&self) -> usize {

@@ -59,7 +59,7 @@ impl FLLConfig {
             let epsilon_delta = epsilon_slopes[phase] as f64 / phase_len as f64;
             let mu_delta = mu_slopes[phase] as f64 / phase_len as f64;
             for _ in 0..phase_len {
-                let step = ProtocolStep::new(mu, epsilon);
+                let step = ProtocolStep::new(mu, epsilon, None, None);
                 steps.push(step);
                 epsilon += epsilon_delta;
                 mu += mu_delta;

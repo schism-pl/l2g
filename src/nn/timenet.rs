@@ -174,7 +174,7 @@ impl ProtocolIter for NnMegastepIter {
         self.mu_accum += mu;
         let chemical_potential = (orig_mu + self.mu_accum).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + self.ep_accum).clamp(0.0, 20.0);
-        let step = ProtocolStep::new(chemical_potential, interaction_energy);
+        let step = ProtocolStep::new(chemical_potential, interaction_energy, None, None);
         self.t += 1.0 / self.protocol.num_megasteps() as f64;
         Some(step)
     }
@@ -185,7 +185,7 @@ impl ProtocolIter for NnMegastepIter {
         let orig_mu = self.protocol.chemical_potential(self.t as usize);
         let chemical_potential = (orig_mu + mu + self.mu_accum).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon + self.ep_accum).clamp(0.0, 20.0);
-        ProtocolStep::new(chemical_potential, interaction_energy)
+        ProtocolStep::new(chemical_potential, interaction_energy, None, None)
     }
 
     fn start(&self) -> ProtocolStep {
@@ -194,7 +194,7 @@ impl ProtocolIter for NnMegastepIter {
         let orig_mu = self.protocol.chemical_potential(0);
         let chemical_potential = (orig_mu + mu + self.mu_accum).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon + self.ep_accum).clamp(0.0, 20.0);
-        ProtocolStep::new(chemical_potential, interaction_energy)
+        ProtocolStep::new(chemical_potential, interaction_energy, None, None)
     }
 
     fn len(&self) -> usize {
