@@ -55,14 +55,18 @@ impl FLLConfig {
         let phase_len = proto.len() / self.num_phases;
         assert_eq!(phase_len * self.num_phases, proto.len());
 
+        let mut step_idx = 0;
         for phase in 0..self.num_phases {
             let epsilon_delta = epsilon_slopes[phase] as f64 / phase_len as f64;
             let mu_delta = mu_slopes[phase] as f64 / phase_len as f64;
             for _ in 0..phase_len {
-                let step = ProtocolStep::new(mu, epsilon, None, None);
+                let pressure_x = proto.pressure_x(step_idx);
+                let pressure_y = proto.pressure_y(step_idx);
+                let step = ProtocolStep::new(mu, epsilon, pressure_x, pressure_y);
                 steps.push(step);
                 epsilon += epsilon_delta;
                 mu += mu_delta;
+                step_idx += 1;
             }
         }
 
