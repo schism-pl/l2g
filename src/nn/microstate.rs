@@ -32,7 +32,7 @@ impl MicrostateConfig {
     pub fn new(shapes: &[Morphology], mutation_factor: f32) -> Self {
         // for each shape, get num patches + 1 and sum them
         let num_patches = shapes.iter().map(|s| s.patches().len() + 1).sum::<usize>() + 1;
-        let nn = NN::new(&[num_patches, 1000, 2])
+        let nn = NN::new(&[num_patches, 1000, 3])
             .with_learning_rate(0.1)
             .with_hidden_type(ActivationType::Tanh)
             .with_initialization(InitializationType::Fixed(0.0))
@@ -101,13 +101,11 @@ impl MicroStateIter {
 
     // TODO: solve hidden randomness
     // inputs should be [t, p0..p_n]
-    fn eval(&self, patch_distrs: &[Vec<usize>], t: f32) -> (f64, f64) {
-        // Get particle distribution
+    fn eval(&self, patch_distrs: &[Vec<usize>], t: f32) -> (f64, f64, f64) {
         let inputs = format_inputs(patch_distrs, t);
         let outputs = self.nn.forward(&inputs);
-        //println!("{:?} -> {:?}", inputs, slopes);
-        assert_eq!(outputs.len(), 2); // interaction energy, chemical potential
-        (outputs[1] as f64, outputs[0] as f64) // TODO: scale?
+        assert_eq!(outputs.len(), 3); // interaction energy, chemical potential, pressure
+        (outputs[1] as f64, outputs[0] as f64, outputs[2] as f64)
     }
 }
 
@@ -119,24 +117,26 @@ impl ProtocolIter for MicroStateIter {
 
         let patch_distrs = calc_bond_distribution(vmmc);
 
-        let (epsilon, mu) = self.eval(&patch_distrs, self.t as f32);
+        let (epsilon, mu, pressure) = self.eval(&patch_distrs, self.t as f32);
 
-        let orig_epsilon = self
-            .protocol
-            .interaction_energy((self.t * self.protocol.num_megasteps() as f64) as usize);
-        let orig_mu = self
-            .protocol
-            .chemical_potential((self.t * self.protocol.num_megasteps() as f64) as usize);
-        // println!("{:?}: {epsilon} {mu} {orig_epsilon} {orig_mu}", (self.t * self.protocol.num_megasteps() as f64) as usize);
+        let t_idx = (self.t * self.protocol.num_megasteps() as f64) as usize;
+        let orig_epsilon = self.protocol.interaction_energy(t_idx);
+        let orig_mu = self.protocol.chemical_potential(t_idx);
         let chemical_potential = (orig_mu + mu).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon).clamp(0.0, 20.0);
-        // println!("({chemical_potential} --- {interaction_energy})");
-        let t_idx = (self.t * self.protocol.num_megasteps() as f64) as usize;
+        let pressure_x = self
+            .protocol
+            .pressure_x(t_idx)
+            .map(|p| (p + pressure).clamp(-20.0, 20.0));
+        let pressure_y = self
+            .protocol
+            .pressure_y(t_idx)
+            .map(|p| (p + pressure).clamp(-20.0, 20.0));
         let step = ProtocolStep::new(
             chemical_potential,
             interaction_energy,
-            self.protocol.pressure_x(t_idx),
-            self.protocol.pressure_y(t_idx),
+            pressure_x,
+            pressure_y,
         );
         self.t += 1.0 / self.protocol.num_megasteps() as f64;
         Some(step)
@@ -146,34 +146,41 @@ impl ProtocolIter for MicroStateIter {
     fn peek(&self, vmmc: &Vmmc) -> ProtocolStep {
         let patch_distrs = calc_bond_distribution(vmmc);
 
-        let (epsilon, mu) = self.eval(&patch_distrs, self.t as f32);
-        let orig_epsilon = self
-            .protocol
-            .interaction_energy((self.t * self.protocol.num_megasteps() as f64) as usize);
-        let orig_mu = self
-            .protocol
-            .chemical_potential((self.t * self.protocol.num_megasteps() as f64) as usize);
+        let (epsilon, mu, pressure) = self.eval(&patch_distrs, self.t as f32);
+        let t_idx = (self.t * self.protocol.num_megasteps() as f64) as usize;
+        let orig_epsilon = self.protocol.interaction_energy(t_idx);
+        let orig_mu = self.protocol.chemical_potential(t_idx);
         let chemical_potential = (orig_mu + mu).clamp(-20.0, 20.0);
         let interaction_energy = (orig_epsilon + epsilon).clamp(0.0, 20.0);
-        let t_idx = (self.t * self.protocol.num_megasteps() as f64) as usize;
+        let pressure_x = self
+            .protocol
+            .pressure_x(t_idx)
+            .map(|p| (p + pressure).clamp(-20.0, 20.0));
+        let pressure_y = self
+            .protocol
+            .pressure_y(t_idx)
+            .map(|p| (p + pressure).clamp(-20.0, 20.0));
         ProtocolStep::new(
             chemical_potential,
             interaction_energy,
-            self.protocol.pressure_x(t_idx),
-            self.protocol.pressure_y(t_idx),
+            pressure_x,
+            pressure_y,
         )
     }
 
     fn start(&self) -> ProtocolStep {
         let orig_epsilon = self.protocol.interaction_energy(0);
         let orig_mu = self.protocol.chemical_potential(0);
-        let chemical_potential = (orig_mu).clamp(-20.0, 20.0);
-        let interaction_energy = (orig_epsilon).clamp(0.0, 20.0);
+        let chemical_potential = orig_mu.clamp(-20.0, 20.0);
+        let interaction_energy = orig_epsilon.clamp(0.0, 20.0);
+        // start() is called before the first eval, so no NN pressure delta yet
+        let pressure_x = self.protocol.pressure_x(0);
+        let pressure_y = self.protocol.pressure_y(0);
         ProtocolStep::new(
             chemical_potential,
             interaction_energy,
-            self.protocol.pressure_x(0),
-            self.protocol.pressure_y(0),
+            pressure_x,
+            pressure_y,
         )
     }
 
