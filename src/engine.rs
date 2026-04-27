@@ -103,7 +103,7 @@ impl EvoEngine {
 
     fn simulate_state(&self, state: &Dna, thread_seed: u64, output_path: &str) -> Vmmc {
         let mut thread_rng = Prng::seed_from_u64(thread_seed);
-        
+
         record_child_config(output_path, state);
         let (proto, child) = self
             .step_one(state, &mut thread_rng)
