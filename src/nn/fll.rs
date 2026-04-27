@@ -51,30 +51,28 @@ impl FLLConfig {
 
         let mut epsilon = proto.interaction_energy(0);
         let mut mu = proto.chemical_potential(0);
+        let base_pressure_x = proto.pressure_x(0);
+        let base_pressure_y = proto.pressure_y(0);
         let mut pressure_accum: f64 = 0.0;
 
         let mut steps = Vec::new();
         let phase_len = proto.len() / self.num_phases;
         assert_eq!(phase_len * self.num_phases, proto.len());
 
-        let mut step_idx = 0;
         for phase in 0..self.num_phases {
             let epsilon_delta = epsilon_slopes[phase] as f64 / phase_len as f64;
             let mu_delta = mu_slopes[phase] as f64 / phase_len as f64;
             let pressure_delta = pressure_slopes[phase] as f64 / phase_len as f64;
             for _ in 0..phase_len {
-                let pressure_x = proto
-                    .pressure_x(step_idx)
+                let pressure_x = base_pressure_x
                     .map(|p| (p + pressure_accum).clamp(-20.0, 20.0));
-                let pressure_y = proto
-                    .pressure_y(step_idx)
+                let pressure_y = base_pressure_y
                     .map(|p| (p + pressure_accum).clamp(-20.0, 20.0));
                 let step = ProtocolStep::new(mu, epsilon, pressure_x, pressure_y);
                 steps.push(step);
                 epsilon += epsilon_delta;
                 mu += mu_delta;
                 pressure_accum += pressure_delta;
-                step_idx += 1;
             }
         }
 
