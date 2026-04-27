@@ -1,7 +1,7 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use vmmc::particle::IsParticle;
 use vmmc::packing_fraction;
+use vmmc::particle::IsParticle;
 use vmmc::polygons::calc_polygon_count;
 use vmmc::polygons::calc_polygon_distribution;
 use vmmc::polygons::calc_unitcells;
@@ -31,10 +31,7 @@ impl FitnessFunc {
             FitnessFunc::Random => rng.random(),
             FitnessFunc::PolygonSum => calc_polygon_count(vmmc, 12) as f64,
             FitnessFunc::PolygonDensity => {
-                let pf = packing_fraction(
-                    vmmc.particles().num_particles(),
-                    vmmc.simbox().volume(),
-                );
+                let pf = packing_fraction(vmmc.particles().num_particles(), vmmc.simbox().volume());
                 calc_polygon_count(vmmc, 12) as f64 * pf
             }
             FitnessFunc::ShapeDist => {
@@ -62,10 +59,7 @@ impl FitnessFunc {
             FitnessFunc::UnitcellDensity(tiling_string) => {
                 let unitcell = tiling_from_str(tiling_string).expect("Invalid tiling string");
                 let count = calc_unitcells(vmmc, 12, &unitcell).len() as f64;
-                let pf = packing_fraction(
-                    vmmc.particles().num_particles(),
-                    vmmc.simbox().volume(),
-                );
+                let pf = packing_fraction(vmmc.particles().num_particles(), vmmc.simbox().volume());
                 count * pf
             }
         }
